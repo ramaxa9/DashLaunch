@@ -30,8 +30,13 @@ PlasmoidItem {
     property int selectedWindowIndex: -1
     property int selectedDesktopIndex: -1
     property int windowGridColumns: 1
-    property int desktopPreviewWidth: 196
-    property int desktopPreviewHeight: 118
+    readonly property int desktopPreviewWidth: 400
+    readonly property int desktopPreviewHeight: currentScreenGeometry.width > 0
+        ? Math.round(desktopPreviewWidth * currentScreenGeometry.height / currentScreenGeometry.width)
+        : 225
+    property int desktopPreviewRevision: 0
+    property bool pendingInitialWindowFocus: false
+    property bool suppressHoverSelectionOnOpen: false
     property string navigationSection: "desktops"
 
     readonly property bool searching: searchText.length > 0
@@ -44,8 +49,8 @@ PlasmoidItem {
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
 
     preferredRepresentation: compactRepresentation
-    switchWidth: Math.round(root.currentScreenGeometry.width * 0.95)
-    switchHeight: Math.round(root.currentScreenGeometry.height * 0.95)
+    switchWidth: root.currentScreenGeometry.width
+    switchHeight: root.currentScreenGeometry.height
 
     function clearSearch() {
         searchText = "";
@@ -193,6 +198,10 @@ PlasmoidItem {
         return desktopWindowIndexes(desktopId).length;
     }
 
+    function refreshDesktopPreviews() {
+        desktopPreviewRevision += 1;
+    }
+
     function desktopWindowPreviewRect(row, previewWidth, previewHeight) {
         const geometry = desktopTaskData(row, TaskManager.AbstractTasksModel.Geometry);
         const clippedGeometry = intersectRects(geometry, currentScreenGeometry);
@@ -269,7 +278,7 @@ PlasmoidItem {
 
         syncWindowSelection();
 
-        const columns = Math.max(1, windowGridColumns);
+        const columns = visibleWindowGridColumns();
         const currentColumn = selectedWindowIndex % columns;
         const currentRow = Math.floor(selectedWindowIndex / columns);
         const targetRow = Math.max(0, currentRow + step);
@@ -300,6 +309,45 @@ PlasmoidItem {
         if (selectedWindowIndex >= 0) {
             navigationSection = "windows";
         }
+    }
+
+    function focusInitialSelection() {
+        syncWindowSelection();
+        if (selectedWindowIndex >= 0) {
+            selectedWindowIndex = 0;
+            navigationSection = "windows";
+            return;
+        }
+
+        syncDesktopSelection();
+        navigationSection = selectedDesktopIndex >= 0 ? "desktops" : "windows";
+    }
+
+    function applyPendingInitialWindowFocus() {
+        if (!pendingInitialWindowFocus || !expanded) {
+            return;
+        }
+
+        focusInitialSelection();
+        pendingInitialWindowFocus = false;
+    }
+
+    function visibleWindowGridColumns() {
+        return Math.max(1, Math.min(windowGridColumns, windowsModel.count || 1));
+    }
+
+    function refreshWindowGridLayout() {
+        Qt.callLater(function() {
+            if (!windowsGrid) {
+                return;
+            }
+
+            windowsGrid.updateColumns();
+
+            if (windowsGrid.currentIndex >= 0) {
+                windowsGrid.positionViewAtIndex(windowsGrid.currentIndex, GridView.Contain);
+            }
+        });
     }
 
     function switchToDesktop(desktopId) {
@@ -361,7 +409,7 @@ PlasmoidItem {
                 moveSearchSelection(-1);
             } else if (navigationSection === "windows") {
                 syncWindowSelection();
-                if (selectedWindowIndex < Math.max(1, windowGridColumns)) {
+                if (selectedWindowIndex < visibleWindowGridColumns()) {
                     focusDesktopSelection();
                 } else {
                     moveWindowSelectionVertical(-1);
@@ -421,22 +469,41 @@ PlasmoidItem {
 
     onExpandedChanged: {
             if (!root.expanded) {
+            pendingInitialWindowFocus = false;
+            suppressHoverSelectionOnOpen = false;
             clearSearch();
             return;
         }
 
+        pendingInitialWindowFocus = true;
+        suppressHoverSelectionOnOpen = true;
         updateCurrentScreenGeometry();
         windowsModel.sort(0);
         windowsModel.invalidate();
-        syncWindowSelection();
-        syncDesktopSelection();
-        navigationSection = selectedDesktopIndex >= 0 ? "desktops" : "windows";
+        desktopWindowsModel.sort(0);
+        desktopWindowsModel.invalidate();
+        refreshDesktopPreviews();
+        focusInitialSelection();
         Qt.callLater(updateCurrentScreenGeometry);
+        Qt.callLater(refreshDesktopPreviews);
+        Qt.callLater(applyPendingInitialWindowFocus);
     }
 
     onFullRepresentationItemChanged: {
         if (expanded) {
             Qt.callLater(updateCurrentScreenGeometry);
+        }
+    }
+
+    onSearchingChanged: refreshWindowGridLayout()
+
+    onSelectedWindowIndexChanged: {
+        if (!windowsGrid) {
+            return;
+        }
+
+        if (windowsGrid.currentIndex !== selectedWindowIndex) {
+            windowsGrid.currentIndex = selectedWindowIndex;
         }
     }
 
@@ -454,10 +521,12 @@ PlasmoidItem {
 
         function onCurrentDesktopChanged() {
             root.syncDesktopSelection();
+            root.refreshDesktopPreviews();
         }
 
         function onDesktopIdsChanged() {
             root.syncDesktopSelection();
+            root.refreshDesktopPreviews();
         }
     }
 
@@ -493,7 +562,10 @@ PlasmoidItem {
         hideActivatedLaunchers: true
         sortMode: TaskManager.TasksModel.SortLastActivated
 
-        onCountChanged: root.syncWindowSelection()
+        onCountChanged: {
+            root.syncWindowSelection();
+            root.applyPendingInitialWindowFocus();
+        }
     }
 
     TaskManager.TasksModel {
@@ -506,6 +578,28 @@ PlasmoidItem {
         groupMode: TaskManager.TasksModel.GroupDisabled
         hideActivatedLaunchers: true
         sortMode: TaskManager.TasksModel.SortLastActivated
+
+        onCountChanged: root.refreshDesktopPreviews()
+    }
+
+    Connections {
+        target: desktopWindowsModel
+
+        function onDataChanged() {
+            root.refreshDesktopPreviews();
+        }
+
+        function onModelReset() {
+            root.refreshDesktopPreviews();
+        }
+
+        function onRowsInserted() {
+            root.refreshDesktopPreviews();
+        }
+
+        function onRowsRemoved() {
+            root.refreshDesktopPreviews();
+        }
     }
 
     compactRepresentation: Item {
@@ -538,6 +632,8 @@ PlasmoidItem {
     fullRepresentation: FocusScope {
         id: fullView
         focus: root.expanded
+        width: root.switchWidth
+        height: root.switchHeight
         implicitWidth: root.switchWidth
         implicitHeight: root.switchHeight
 
@@ -572,6 +668,17 @@ PlasmoidItem {
                     searchField.forceActiveFocus();
                 });
                 event.accepted = true;
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.NoButton
+            hoverEnabled: true
+            propagateComposedEvents: true
+
+            onPositionChanged: {
+                root.suppressHoverSelectionOnOpen = false;
             }
         }
 
@@ -746,6 +853,10 @@ PlasmoidItem {
                                     orientation: ListView.Horizontal
                                     model: virtualDesktopInfo.desktopIds
                                     boundsBehavior: Flickable.StopAtBounds
+                                    readonly property real centeredContentWidth: Math.max(0, (count * root.desktopPreviewWidth) + (Math.max(0, count - 1) * spacing))
+                                    readonly property real sideMargin: Math.max(0, (width - centeredContentWidth) / 2)
+                                    leftMargin: sideMargin
+                                    rightMargin: sideMargin
 
                                     onCurrentIndexChanged: {
                                         if (currentIndex >= 0) {
@@ -759,7 +870,10 @@ PlasmoidItem {
                                         required property var modelData
                                         readonly property string desktopId: modelData
                                         readonly property bool isCurrentDesktop: desktopId === virtualDesktopInfo.currentDesktop
-                                        readonly property int previewWindowCount: root.desktopWindowCount(desktopId)
+                                        readonly property int previewWindowCount: {
+                                            root.desktopPreviewRevision;
+                                            return root.desktopWindowCount(desktopId);
+                                        }
                                         readonly property bool isSelected: !root.searching && root.navigationSection === "desktops" && root.selectedDesktopIndex === index
 
                                         width: root.desktopPreviewWidth
@@ -786,11 +900,19 @@ PlasmoidItem {
                                                 }
 
                                                 Repeater {
-                                                    model: root.desktopWindowIndexes(desktopCard.desktopId)
+                                                    model: root.expanded
+                                                        ? (function() {
+                                                            root.desktopPreviewRevision;
+                                                            return root.desktopWindowIndexes(desktopCard.desktopId);
+                                                        })()
+                                                        : []
 
                                                     delegate: Rectangle {
                                                         required property int modelData
-                                                        readonly property rect previewRect: root.desktopWindowPreviewRect(modelData, parent.width, parent.height)
+                                                        readonly property rect previewRect: {
+                                                            root.desktopPreviewRevision;
+                                                            return root.desktopWindowPreviewRect(modelData, parent.width, parent.height);
+                                                        }
 
                                                         x: previewRect.x
                                                         y: previewRect.y
@@ -845,6 +967,10 @@ PlasmoidItem {
                                             cursorShape: Qt.PointingHandCursor
 
                                             onEntered: {
+                                                if (root.suppressHoverSelectionOnOpen) {
+                                                    return;
+                                                }
+
                                                 root.selectedDesktopIndex = index;
                                                 root.navigationSection = "desktops";
                                             }
@@ -873,16 +999,20 @@ PlasmoidItem {
                                 currentIndex: root.selectedWindowIndex
                                 boundsBehavior: Flickable.StopAtBounds
                                 clip: true
-                                cellWidth: Math.max(220, Math.min(320, width / Math.max(1, root.windowGridColumns)))
+                                cellWidth: Math.max(300, Math.min(600, width / root.visibleWindowGridColumns()))
                                 cellHeight: cellWidth * 0.68
+                                readonly property int visibleColumnCount: root.visibleWindowGridColumns()
 
                                 function updateColumns() {
-                                    const idealWidth = root.searching ? 260 : 280;
+                                    const idealWidth = root.searching ? 300 : 320;
                                     root.windowGridColumns = Math.max(1, Math.floor(Math.max(width, idealWidth) / idealWidth));
                                 }
 
                                 onWidthChanged: updateColumns()
-                                Component.onCompleted: updateColumns()
+                                Component.onCompleted: {
+                                    currentIndex = root.selectedWindowIndex;
+                                    updateColumns();
+                                }
 
                                 onCurrentIndexChanged: {
                                     if (currentIndex >= 0) {
@@ -965,6 +1095,10 @@ PlasmoidItem {
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         onEntered: {
+                                            if (root.suppressHoverSelectionOnOpen) {
+                                                return;
+                                            }
+
                                             root.selectedWindowIndex = index;
                                             root.navigationSection = "windows";
                                         }

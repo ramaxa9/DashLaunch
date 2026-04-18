@@ -7,7 +7,7 @@
 
 - I like to have all in one place, by pressing Win button or by moving mouse to the corner i can access everything i need.
 So i like gnome dashboard but i dont like gnome.
-- I dont like Plasma Overview it opens on all screens, and i dont like its layout
+- I not using Plasma Overview because it opens on all screens, and i dont like its layout
 - This is a quick fix to my problem.
 
 ### What is implemented
