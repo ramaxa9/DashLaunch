@@ -1,6 +1,6 @@
 # Dash Launch
-The code is 100% AI generated!
-This project is a Plasma 6 application dashboard+overview:
+- The code is 100% AI generated!
+- This is a Plasma 6 Gnome-like Applications Dashboard
 
 - open windows on the current desktop
 - application search through KRunner services
