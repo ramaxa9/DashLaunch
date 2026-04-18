@@ -41,6 +41,7 @@ PlasmoidItem {
 
     readonly property bool searching: searchText.length > 0
     readonly property bool filterCurrentMonitor: Plasmoid.configuration.showOnlyCurrentMonitor
+    readonly property bool filterCurrentVirtualDesktop: Plasmoid.configuration.showOnlyCurrentVirtualDesktop
     readonly property var searchResultsModel: runnerModel.count > 0 ? runnerModel.modelForRow(0) : null
 
     Plasmoid.title: "Dash Launch"
@@ -350,6 +351,16 @@ PlasmoidItem {
         });
     }
 
+    function refreshWindowModels() {
+        windowsModel.sort(0);
+        windowsModel.invalidate();
+        desktopWindowsModel.sort(0);
+        desktopWindowsModel.invalidate();
+        syncWindowSelection();
+        refreshWindowGridLayout();
+        refreshDesktopPreviews();
+    }
+
     function switchToDesktop(desktopId) {
         if (!desktopId) {
             return false;
@@ -478,11 +489,7 @@ PlasmoidItem {
         pendingInitialWindowFocus = true;
         suppressHoverSelectionOnOpen = true;
         updateCurrentScreenGeometry();
-        windowsModel.sort(0);
-        windowsModel.invalidate();
-        desktopWindowsModel.sort(0);
-        desktopWindowsModel.invalidate();
-        refreshDesktopPreviews();
+        refreshWindowModels();
         focusInitialSelection();
         Qt.callLater(updateCurrentScreenGeometry);
         Qt.callLater(refreshDesktopPreviews);
@@ -496,6 +503,10 @@ PlasmoidItem {
     }
 
     onSearchingChanged: refreshWindowGridLayout()
+
+    onFilterCurrentMonitorChanged: refreshWindowModels()
+
+    onFilterCurrentVirtualDesktopChanged: refreshWindowModels()
 
     onSelectedWindowIndexChanged: {
         if (!windowsGrid) {
@@ -520,6 +531,11 @@ PlasmoidItem {
         target: virtualDesktopInfo
 
         function onCurrentDesktopChanged() {
+            if (root.filterCurrentVirtualDesktop) {
+                windowsModel.invalidate();
+                root.syncWindowSelection();
+                root.refreshWindowGridLayout();
+            }
             root.syncDesktopSelection();
             root.refreshDesktopPreviews();
         }
@@ -554,7 +570,8 @@ PlasmoidItem {
     TaskManager.TasksModel {
         id: windowsModel
         activity: ""
-        filterByVirtualDesktop: true
+        virtualDesktop: virtualDesktopInfo.currentDesktop
+        filterByVirtualDesktop: root.filterCurrentVirtualDesktop
         filterByScreen: root.filterCurrentMonitor
         screenGeometry: root.currentScreenGeometry
         groupInline: false
@@ -999,7 +1016,7 @@ PlasmoidItem {
                                 currentIndex: root.selectedWindowIndex
                                 boundsBehavior: Flickable.StopAtBounds
                                 clip: true
-                                cellWidth: Math.max(300, Math.min(600, width / root.visibleWindowGridColumns()))
+                                cellWidth: Math.max(400, Math.min(600, width / root.visibleWindowGridColumns()))
                                 cellHeight: cellWidth * 0.68
                                 readonly property int visibleColumnCount: root.visibleWindowGridColumns()
 

@@ -14,5 +14,9 @@
       <label>Show only open windows from the current monitor.</label>
       <default>true</default>
     </entry>
+    <entry name="showOnlyCurrentVirtualDesktop" type="Bool">
+      <label>Show only open windows from the current virtual desktop.</label>
+      <default>true</default>
+    </entry>
   </group>
 </kcfg>

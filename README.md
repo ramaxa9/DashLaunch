@@ -3,6 +3,8 @@
 - This is 99.9% AI generated! 
 - This is a Plasma 6 Gnome-like Applications Dashboard
 
+
+
 ### Why?
 
 - I like to have all in one place, by pressing Win button or by moving mouse to the corner i can access everything i need.
@@ -13,6 +15,7 @@ So i like gnome dashboard but i dont like gnome.
 ### What is implemented
 
 - show opened windows on the current/all screens
+- show opened windows on the current/all virtual desktops
 - application search through KRunner services
 - virtual desktops
 - keyboard navigation
