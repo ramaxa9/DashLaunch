@@ -17,3 +17,5 @@ qmldir
 *.swo
 *~
 .DS_Store
+.gitignore
+ 
