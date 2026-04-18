@@ -2,9 +2,11 @@
 - The code is 100% AI generated!
 - This is a Plasma 6 Gnome-like Applications Dashboard
 
-- open windows on the current desktop
+### What is implemented
+- show opened windows on the current/all screens
 - application search through KRunner services
-- a launch grid for installed applications
+- virtual desktops
+- keyboard navigation
 
 ## Layout
 
