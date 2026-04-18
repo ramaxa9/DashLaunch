@@ -30,7 +30,9 @@ So i like gnome dashboard but i dont like gnome.
 Install the plasmoid package locally:
 
 ```bash
-./install.sh
+git clone https://github.com/ramaxa9/DashLaunch.git
+cd DashLaunch
+sh install.sh
 ```
 
 Upgrade after edits:
