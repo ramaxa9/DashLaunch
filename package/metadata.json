@@ -1,0 +1,23 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [
+      {
+        "Email": "",
+        "Name": "GitHub Copilot"
+      }
+    ],
+    "Category": "Application Launchers",
+    "Description": "Plasma dashboard with windows overview and app search.",
+    "EnabledByDefault": true,
+    "Icon": "view-grid",
+    "Id": "org.kde.plasma.dashlaunch",
+    "License": "GPL-3.0-or-later",
+    "Name": "Dash Launch"
+  },
+  "X-Plasma-API-Minimum-Version": "6.0",
+  "X-Plasma-MainScript": "ui/main.qml",
+  "X-Plasma-Provides": [
+    "org.kde.plasma.launchermenu"
+  ]
+}

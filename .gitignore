@@ -1,0 +1,19 @@
+.vscode/
+
+# Local packaging and build artifacts
+dist/
+build/
+*.plasmoid
+*.zip
+*.tar
+*.tar.gz
+
+# QML cache and temporary files
+*.qmlc
+qmldir
+
+# Editor and OS clutter
+*.swp
+*.swo
+*~
+.DS_Store
