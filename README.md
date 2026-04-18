@@ -1,5 +1,5 @@
 # Dash Launch
-- The code is 100% AI generated!
+- The code is 99.9% AI generated! 
 - This is a Plasma 6 Gnome-like Applications Dashboard
 
 ### What is implemented
