@@ -27,18 +27,6 @@ Upgrade after edits:
 ./install.sh
 ```
 
-## Preview
-
-If your system has Plasma tooling installed, you can preview it with one of these:
-
-```bash
-plasmoidviewer -a /home/mro/plasma-dashboard-launcher/package
-```
-
-```bash
-plasmawindowed org.kde.plasma.dashlaunch
-```
-
 ## Notes
 
 - The search view uses the `krunner_services` runner, so it focuses on app launching.
