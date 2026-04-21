@@ -81,11 +81,14 @@ PlasmoidItem {
     readonly property int appGridResultsWidth: dashboardWidth
     readonly property int appGridResultsPadding: Math.round(dashboardWidth * 0.02)
     readonly property int appGridTileSpacing: Kirigami.Units.smallSpacing
-    readonly property int appGridIconSize: Math.max(16, Math.round(dashboardWidth * 0.0405))
-    readonly property int appGridMinCellWidth: Math.max(Kirigami.Units.gridUnit * 6, Math.round(dashboardWidth * 0.06))
-    readonly property int appGridMaxCellWidth: Math.max(appGridMinCellWidth, Math.round(dashboardWidth * 0.07))
+    readonly property int appGridTileSize: Math.max(24, Math.round(Math.min(dashboardWidth, dashboardHeight) * 0.15))
+    readonly property int appGridIconSize: Math.round(appGridTileSize * 0.75)
+    readonly property int appGridMinCellWidth: appGridTileSize
+    readonly property int appGridMaxCellWidth: appGridTileSize
     readonly property real appGridCellAspectRatio: 1.0
     readonly property int appGridColumns: Math.max(1, Math.floor(appGridResultsWidth / appGridMinCellWidth))
+    readonly property int windowTileMinWidth: Math.round(dashboardWidth * 0.2)
+    readonly property int windowTileMaxWidth: Math.max(windowTileMinWidth, Math.round(dashboardWidth * 0.23))
 
     Plasmoid.title: "Dash Launch"
     Plasmoid.icon: Plasmoid.configuration.widgetIcon || "view-grid"
@@ -1507,11 +1510,11 @@ PlasmoidItem {
                                 currentIndex: root.selectedWindowIndex
                                 boundsBehavior: Flickable.StopAtBounds
                                 clip: true
-                                cellWidth: Math.max(root.windowGridMinCellWidth, Math.min(root.windowGridMaxCellWidth, width / root.visibleWindowGridColumns()))
+                                cellWidth: Math.max(400, Math.min(600, width / root.visibleWindowGridColumns()))
                                 cellHeight: cellWidth * 0.68
 
                                 function updateColumns() {
-                                    const idealWidth = root.windowGridTargetCellWidth;
+                                    const idealWidth = root.searching ? 300 : 320;
                                     root.windowGridColumns = Math.max(1, Math.floor(Math.max(width, idealWidth) / idealWidth));
                                 }
 
@@ -1852,7 +1855,8 @@ PlasmoidItem {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    QQC2.ToolTip.visible: containsMouse && ((model.description || "").length > 0)
+                                    QQC2.ToolTip.visible: (containsMouse || (root.appGridSearchActive && root.selectedSearchIndex === index))
+                                        && ((model.description || "").length > 0)
                                     QQC2.ToolTip.delay: 300
                                     QQC2.ToolTip.text: model.description || ""
 
