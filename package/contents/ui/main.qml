@@ -73,6 +73,9 @@ PlasmoidItem {
     readonly property int dashboardHeight: Math.max(480, Math.round(currentScreenGeometry.height * 0.9))
     readonly property int dashboardX: currentScreenGeometry.x + Math.round((currentScreenGeometry.width - dashboardWidth) / 2)
     readonly property int dashboardY: currentScreenGeometry.y + Math.round((currentScreenGeometry.height - dashboardHeight) / 2)
+    readonly property int windowGridMinCellWidth: Math.max(Kirigami.Units.gridUnit * 12, Math.round(dashboardWidth * 0.20))
+    readonly property int windowGridMaxCellWidth: Math.max(windowGridMinCellWidth, Math.round(dashboardWidth * 0.21))
+    readonly property int windowGridTargetCellWidth: Math.round((windowGridMinCellWidth + windowGridMaxCellWidth) / 2)
     readonly property bool appGridSearchActive: appGridLayout && searching
     readonly property int appGridSearchFieldWidth: Math.round(dashboardWidth * 0.2)
     readonly property int appGridResultsWidth: dashboardWidth
@@ -1504,11 +1507,11 @@ PlasmoidItem {
                                 currentIndex: root.selectedWindowIndex
                                 boundsBehavior: Flickable.StopAtBounds
                                 clip: true
-                                cellWidth: Math.max(400, Math.min(600, width / root.visibleWindowGridColumns()))
+                                cellWidth: Math.max(root.windowGridMinCellWidth, Math.min(root.windowGridMaxCellWidth, width / root.visibleWindowGridColumns()))
                                 cellHeight: cellWidth * 0.68
 
                                 function updateColumns() {
-                                    const idealWidth = root.searching ? 300 : 320;
+                                    const idealWidth = root.windowGridTargetCellWidth;
                                     root.windowGridColumns = Math.max(1, Math.floor(Math.max(width, idealWidth) / idealWidth));
                                 }
 
