@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import QtQuick.Window
 
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents3
@@ -23,6 +24,8 @@ PlasmoidItem {
     readonly property color textColor: "#f5f2eb"
     readonly property color mutedTextColor: Qt.rgba(0.96, 0.94, 0.9, 0.68)
     readonly property int tilePadding: 12
+    readonly property string dashboardLayout: Plasmoid.configuration.dashboardLayout || "default"
+    readonly property bool appGridLayout: dashboardLayout === "app-grid"
 
     property string searchText: ""
     property rect currentScreenGeometry: Qt.rect(0, 0, Screen.width, Screen.height)
@@ -35,9 +38,11 @@ PlasmoidItem {
     property bool suppressHoverSelectionOnOpen: false
     property bool desktopPreviewPinned: false
     property bool keepOpenAfterDrag: false
+    property bool dashboardVisible: false
     property string navigationSection: "windows"
     property var fullViewRef: null
     property var windowsGridRef: null
+    property var appGridResultsViewRef: null
     property var searchFieldRef: null
     property var desktopCardRefs: []
     property int draggedWindowRow: -1
@@ -64,20 +69,55 @@ PlasmoidItem {
         ? desktopIdAt(selectedDesktopIndex)
         : ""
     readonly property bool previewingDesktopWindows: previewDesktopId.length > 0
+    readonly property int dashboardWidth: Math.max(640, Math.round(currentScreenGeometry.width * 0.9))
+    readonly property int dashboardHeight: Math.max(480, Math.round(currentScreenGeometry.height * 0.9))
+    readonly property int dashboardX: currentScreenGeometry.x + Math.round((currentScreenGeometry.width - dashboardWidth) / 2)
+    readonly property int dashboardY: currentScreenGeometry.y + Math.round((currentScreenGeometry.height - dashboardHeight) / 2)
+    readonly property bool appGridSearchActive: appGridLayout && searching
+    readonly property int appGridSearchFieldWidth: Math.round(dashboardWidth * 0.2)
+    readonly property int appGridResultsWidth: dashboardWidth
+    readonly property int appGridResultsPadding: Math.round(dashboardWidth * 0.02)
+    readonly property int appGridTileSpacing: Kirigami.Units.smallSpacing
+    readonly property int appGridIconSize: Math.max(16, Math.round(dashboardWidth * 0.0405))
+    readonly property int appGridMinCellWidth: Math.max(Kirigami.Units.gridUnit * 6, Math.round(dashboardWidth * 0.06))
+    readonly property int appGridMaxCellWidth: Math.max(appGridMinCellWidth, Math.round(dashboardWidth * 0.07))
+    readonly property real appGridCellAspectRatio: 1.0
+    readonly property int appGridColumns: Math.max(1, Math.floor(appGridResultsWidth / appGridMinCellWidth))
 
     Plasmoid.title: "Dash Launch"
     Plasmoid.icon: Plasmoid.configuration.widgetIcon || "view-grid"
     Plasmoid.status: PlasmaCore.Types.ActiveStatus
     Plasmoid.backgroundHints: PlasmaCore.Types.NoBackground
-    hideOnWindowDeactivate: !(root.dragging || root.keepOpenAfterDrag)
 
     preferredRepresentation: compactRepresentation
-    switchWidth: root.currentScreenGeometry.width
-    switchHeight: root.currentScreenGeometry.height
 
     function clearSearch() {
         searchText = "";
         selectedSearchIndex = 0;
+    }
+
+    function shouldClearSearchOnEscape() {
+        return searching && searchText.length > 0;
+    }
+
+    function handleEscape() {
+        if (shouldClearSearchOnEscape()) {
+            clearSearch();
+        } else {
+            closeDashboard();
+        }
+    }
+
+    function focusDashboardView() {
+        if (fullViewRef) {
+            fullViewRef.forceActiveFocus();
+        }
+    }
+
+    function focusSearchField() {
+        if (searchFieldRef && searchFieldRef.visible) {
+            searchFieldRef.forceActiveFocus();
+        }
     }
 
     function resetDragState() {
@@ -97,7 +137,7 @@ PlasmoidItem {
     }
 
     function closeDashboard() {
-        root.expanded = false;
+        root.dashboardVisible = false;
         clearSearch();
         selectedWindowIndex = -1;
         selectedDesktopIndex = -1;
@@ -107,7 +147,12 @@ PlasmoidItem {
     }
 
     function taskIndex(row) {
-        return windowsModel.index(row, 0);
+        const visibleRows = visibleWindowRows();
+        if (row < 0 || row >= visibleRows.length) {
+            return windowsModel.index(-1, 0);
+        }
+
+        return windowsModel.index(visibleRows[row], 0);
     }
 
     function taskData(row, role) {
@@ -150,9 +195,58 @@ PlasmoidItem {
         return taskData(row, TaskManager.AbstractTasksModel.AppName) || i18n("Application");
     }
 
+    function normalizedTaskString(value) {
+        return String(value || "").trim().toLowerCase();
+    }
+
+    function isDashboardTask(model, row) {
+        const modelIndex = model.index(row, 0);
+        if (!modelIndex.valid) {
+            return false;
+        }
+
+        const displayName = normalizedTaskString(model.data(modelIndex, Qt.DisplayRole));
+        const appName = normalizedTaskString(model.data(modelIndex, TaskManager.AbstractTasksModel.AppName));
+        const appId = normalizedTaskString(model.data(modelIndex, TaskManager.AbstractTasksModel.AppId));
+        const launcherUrl = normalizedTaskString(model.data(modelIndex, TaskManager.AbstractTasksModel.LauncherUrl));
+        const dashboardTitle = normalizedTaskString(Plasmoid.title);
+
+        return displayName === dashboardTitle
+            || appName === dashboardTitle
+            || appId.indexOf("org.kde.plasma.dashlaunch") >= 0
+            || appId.indexOf("dashlaunch") >= 0
+            || launcherUrl.indexOf("org.kde.plasma.dashlaunch") >= 0
+            || launcherUrl.indexOf("dashlaunch") >= 0;
+    }
+
+    function isWindowTaskVisible(row) {
+        const modelIndex = windowsModel.index(row, 0);
+        if (!modelIndex.valid) {
+            return false;
+        }
+
+        return !Boolean(windowsModel.data(modelIndex, TaskManager.AbstractTasksModel.SkipTaskbar))
+            && !isDashboardTask(windowsModel, row);
+    }
+
+    function visibleWindowRows() {
+        const rows = [];
+
+        for (let row = 0; row < windowsModel.count; ++row) {
+            if (isWindowTaskVisible(row)) {
+                rows.push(row);
+            }
+        }
+
+        return rows;
+    }
+
+    function visibleWindowCount() {
+        return visibleWindowRows().length;
+    }
+
     function expandedWindow() {
-        const item = root.fullRepresentationItem;
-        return item && item.Window ? item.Window.window : null;
+        return dashboardWindow.visible ? dashboardWindow : null;
     }
 
     function updateCurrentScreenGeometry() {
@@ -204,7 +298,8 @@ PlasmoidItem {
     }
 
     function syncWindowSelection() {
-        if (windowsModel.count <= 0) {
+        const count = visibleWindowCount();
+        if (count <= 0) {
             selectedWindowIndex = -1;
             if (navigationSection === "windows") {
                 navigationSection = (virtualDesktopInfo.desktopIds || []).length > 0 ? "desktops" : "windows";
@@ -212,7 +307,7 @@ PlasmoidItem {
             return;
         }
 
-        if (selectedWindowIndex < 0 || selectedWindowIndex >= windowsModel.count) {
+        if (selectedWindowIndex < 0 || selectedWindowIndex >= count) {
             selectedWindowIndex = 0;
         }
     }
@@ -229,7 +324,7 @@ PlasmoidItem {
     }
 
     function applyPendingInitialWindowFocus() {
-        if (!pendingInitialWindowFocus || !expanded) {
+        if (!pendingInitialWindowFocus || !dashboardVisible) {
             return;
         }
 
@@ -238,7 +333,7 @@ PlasmoidItem {
     }
 
     function visibleWindowGridColumns() {
-        return Math.max(1, Math.min(windowGridColumns, windowsModel.count || 1));
+        return Math.max(1, Math.min(windowGridColumns, visibleWindowCount() || 1));
     }
 
     function refreshWindowGridLayout() {
@@ -285,17 +380,44 @@ PlasmoidItem {
         selectedSearchIndex = Math.max(0, Math.min(count - 1, selectedSearchIndex + step));
     }
 
+    function visibleAppGridColumns() {
+        const view = appGridResultsViewRef;
+        if (view && view.responsiveColumns > 0) {
+            return view.responsiveColumns;
+        }
+
+        return appGridColumns;
+    }
+
+    function moveAppGridSelectionVertical(step) {
+        const count = searchResultsModel ? searchResultsModel.count : 0;
+        if (count <= 0) {
+            return;
+        }
+
+        const columns = visibleAppGridColumns();
+        const currentIndex = Math.max(0, Math.min(count - 1, selectedSearchIndex));
+        const currentColumn = currentIndex % columns;
+        const currentRow = Math.floor(currentIndex / columns);
+        const targetRow = Math.max(0, currentRow + step);
+        const targetIndex = (targetRow * columns) + currentColumn;
+
+        selectedSearchIndex = Math.max(0, Math.min(count - 1, targetIndex));
+    }
+
     function moveWindowSelectionHorizontal(step) {
-        if (windowsModel.count <= 0) {
+        const count = visibleWindowCount();
+        if (count <= 0) {
             return;
         }
 
         syncWindowSelection();
-        selectedWindowIndex = Math.max(0, Math.min(windowsModel.count - 1, selectedWindowIndex + step));
+        selectedWindowIndex = Math.max(0, Math.min(count - 1, selectedWindowIndex + step));
     }
 
     function moveWindowSelectionVertical(step) {
-        if (windowsModel.count <= 0) {
+        const count = visibleWindowCount();
+        if (count <= 0) {
             return;
         }
 
@@ -306,7 +428,7 @@ PlasmoidItem {
         const currentRow = Math.floor(selectedWindowIndex / columns);
         const targetRow = Math.max(0, currentRow + step);
         const targetIndex = (targetRow * columns) + currentColumn;
-        selectedWindowIndex = Math.max(0, Math.min(windowsModel.count - 1, targetIndex));
+        selectedWindowIndex = Math.max(0, Math.min(count - 1, targetIndex));
     }
 
     function moveDesktopSelection(step) {
@@ -357,12 +479,13 @@ PlasmoidItem {
 
         windowsModel.requestClose(index);
 
-        if (windowsModel.count <= 1) {
+        const count = visibleWindowCount();
+        if (count <= 1) {
             selectedWindowIndex = -1;
             return;
         }
 
-        selectedWindowIndex = Math.max(0, Math.min(windowsModel.count - 2, row));
+        selectedWindowIndex = Math.max(0, Math.min(count - 2, row));
     }
 
     function switchToDesktop(desktopId) {
@@ -421,7 +544,11 @@ PlasmoidItem {
 
         if (event.key === Qt.Key_Up) {
             if (searching) {
-                moveSearchSelection(-1);
+                if (appGridSearchActive) {
+                    moveAppGridSelectionVertical(-1);
+                } else {
+                    moveSearchSelection(-1);
+                }
             } else if (navigationSection === "windows") {
                 syncWindowSelection();
                 if (selectedWindowIndex < visibleWindowGridColumns()) {
@@ -438,12 +565,28 @@ PlasmoidItem {
 
         if (event.key === Qt.Key_Down) {
             if (searching) {
-                moveSearchSelection(1);
+                if (appGridSearchActive) {
+                    moveAppGridSelectionVertical(1);
+                } else {
+                    moveSearchSelection(1);
+                }
             } else if (navigationSection === "desktops") {
                 focusWindowSelection();
             } else {
                 moveWindowSelectionVertical(1);
             }
+            event.accepted = true;
+            return true;
+        }
+
+        if (searching && appGridSearchActive && event.key === Qt.Key_Left) {
+            moveSearchSelection(-1);
+            event.accepted = true;
+            return true;
+        }
+
+        if (searching && appGridSearchActive && event.key === Qt.Key_Right) {
+            moveSearchSelection(1);
             event.accepted = true;
             return true;
         }
@@ -496,6 +639,10 @@ PlasmoidItem {
     }
 
     function taskBelongsToDesktop(row, desktopId) {
+        if (desktopTaskData(row, TaskManager.AbstractTasksModel.SkipTaskbar) || isDashboardTask(desktopWindowsModel, row)) {
+            return false;
+        }
+
         if (desktopTaskData(row, TaskManager.AbstractTasksModel.IsOnAllVirtualDesktops)) {
             return true;
         }
@@ -656,8 +803,8 @@ PlasmoidItem {
         return moved;
     }
 
-    onExpandedChanged: {
-        if (!root.expanded) {
+    onDashboardVisibleChanged: {
+        if (!root.dashboardVisible) {
             pendingInitialWindowFocus = false;
             suppressHoverSelectionOnOpen = false;
             desktopPreviewPinned = false;
@@ -675,16 +822,36 @@ PlasmoidItem {
         focusInitialSelection();
         Qt.callLater(updateCurrentScreenGeometry);
         Qt.callLater(refreshDesktopPreviews);
+        Qt.callLater(focusDashboardView);
         Qt.callLater(applyPendingInitialWindowFocus);
     }
 
-    onFullRepresentationItemChanged: {
-        if (expanded) {
-            Qt.callLater(updateCurrentScreenGeometry);
+    onExpandedChanged: {
+        if (root.expanded) {
+            root.expanded = false;
+            if (root.dashboardVisible) {
+                root.closeDashboard();
+            } else {
+                root.dashboardVisible = true;
+            }
         }
     }
 
-    onSearchingChanged: refreshWindowGridLayout()
+    onKeepOpenAfterDragChanged: {
+        if (!root.keepOpenAfterDrag && root.dashboardVisible && dashboardWindow.visible && !dashboardWindow.active) {
+            root.closeDashboard();
+        }
+    }
+
+    onSearchingChanged: {
+        refreshWindowGridLayout();
+
+        if (root.appGridSearchActive) {
+            Qt.callLater(focusSearchField);
+        } else if (!root.searching) {
+            Qt.callLater(focusDashboardView);
+        }
+    }
 
     onPreviewDesktopIdChanged: {
         windowsModel.invalidate();
@@ -840,8 +1007,8 @@ PlasmoidItem {
         Rectangle {
             anchors.fill: parent
             radius: Kirigami.Units.cornerRadius
-            color: root.expanded ? root.surfaceHoverColor : root.surfaceColor
-            border.color: root.expanded ? root.selectionBorderColor : root.borderColor
+            color: root.dashboardVisible ? root.surfaceHoverColor : root.surfaceColor
+            border.color: root.dashboardVisible ? root.selectionBorderColor : root.borderColor
 
             Kirigami.Icon {
                 anchors.centerIn: parent
@@ -856,19 +1023,22 @@ PlasmoidItem {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.expanded = !root.expanded
+            onClicked: root.dashboardVisible = !root.dashboardVisible
         }
     }
 
-    fullRepresentation: FocusScope {
-        id: fullView
-        focus: root.expanded
-        width: root.switchWidth
-        height: root.switchHeight
-        implicitWidth: root.switchWidth
-        implicitHeight: root.switchHeight
+    Component {
+        id: dashboardContentComponent
 
-        Component.onCompleted: root.fullViewRef = fullView
+    FocusScope {
+        id: fullView
+        anchors.fill: parent
+        focus: root.dashboardVisible
+
+        Component.onCompleted: {
+            root.fullViewRef = fullView;
+            Qt.callLater(root.focusDashboardView);
+        }
 
         Component.onDestruction: {
             if (root.fullViewRef === fullView) {
@@ -959,7 +1129,7 @@ PlasmoidItem {
         }
 
         Keys.onEscapePressed: event => {
-            root.closeDashboard();
+            root.handleEscape();
             event.accepted = true;
         }
 
@@ -968,7 +1138,7 @@ PlasmoidItem {
                 return;
             }
 
-            if (searchField.activeFocus) {
+            if (root.searchFieldRef && root.searchFieldRef.activeFocus) {
                 return;
             }
 
@@ -978,9 +1148,7 @@ PlasmoidItem {
 
             if (event.text && event.text.length > 0) {
                 root.searchText += event.text;
-                Qt.callLater(function() {
-                    searchField.forceActiveFocus();
-                });
+                Qt.callLater(root.focusSearchField);
                 event.accepted = true;
             }
         }
@@ -1002,14 +1170,15 @@ PlasmoidItem {
             spacing: Kirigami.Units.largeSpacing
 
             RowLayout {
+                visible: !root.appGridSearchActive
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: Kirigami.Units.largeSpacing
 
                 Rectangle {
-                    visible: root.searching
-                    Layout.preferredWidth: root.searching ? Math.max(280, parent.width * 0.32) : 0
-                    Layout.maximumWidth: root.searching ? Math.max(320, parent.width * 0.36) : 0
+                    visible: root.searching && !root.appGridSearchActive
+                    Layout.preferredWidth: root.searching ? Math.round(parent.width * 0.2) : 0
+                    Layout.maximumWidth: root.searching ? Math.round(parent.width * 0.2) : 0
                     Layout.fillHeight: true
                     radius: Kirigami.Units.cornerRadius
                     color: root.surfaceColor
@@ -1030,10 +1199,22 @@ PlasmoidItem {
 
                             onTextEdited: root.searchText = text
 
-                            Component.onCompleted: root.searchFieldRef = searchField
+                            Component.onCompleted: {
+                                if (searchField.visible) {
+                                    root.searchFieldRef = searchField;
+                                }
+                            }
 
                             Component.onDestruction: {
                                 if (root.searchFieldRef === searchField) {
+                                    root.searchFieldRef = null;
+                                }
+                            }
+
+                            onVisibleChanged: {
+                                if (visible) {
+                                    root.searchFieldRef = searchField;
+                                } else if (root.searchFieldRef === searchField) {
                                     root.searchFieldRef = null;
                                 }
                             }
@@ -1055,11 +1236,7 @@ PlasmoidItem {
                             }
 
                             Keys.onEscapePressed: event => {
-                                if (text.length > 0) {
-                                    root.clearSearch();
-                                } else {
-                                    root.closeDashboard();
-                                }
+                                root.handleEscape();
                                 event.accepted = true;
                             }
                         }
@@ -1147,6 +1324,7 @@ PlasmoidItem {
                 }
 
                 Rectangle {
+                    visible: !root.appGridSearchActive
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: Kirigami.Units.cornerRadius
@@ -1233,7 +1411,7 @@ PlasmoidItem {
                                                 }
 
                                                 Repeater {
-                                                    model: root.expanded
+                                                    model: root.dashboardVisible
                                                         ? (function() {
                                                             root.desktopPreviewRevision;
                                                             return root.desktopWindowIndexes(desktopCard.desktopId);
@@ -1322,7 +1500,7 @@ PlasmoidItem {
                             GridView {
                                 id: windowsGrid
                                 anchors.fill: parent
-                                model: windowsModel
+                                model: root.visibleWindowRows()
                                 currentIndex: root.selectedWindowIndex
                                 boundsBehavior: Flickable.StopAtBounds
                                 clip: true
@@ -1357,6 +1535,7 @@ PlasmoidItem {
                                 delegate: Rectangle {
                                     id: windowCard
                                     required property int index
+                                    required property int modelData
                                     property bool dragConsumed: false
 
                                     width: windowsGrid.cellWidth - root.tilePadding
@@ -1517,13 +1696,230 @@ PlasmoidItem {
                                     text: root.previewingDesktopWindows
                                         ? i18n("No open windows on this desktop")
                                         : (root.filterCurrentMonitor ? i18n("No open windows on current monitor") : i18n("No open windows"))
-                                    visible: windowsModel.count === 0
+                                    visible: root.visibleWindowCount() === 0
                                 }
                             }
                         }
                     }
                 }
             }
+
+            Item {
+                visible: root.appGridSearchActive
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: Kirigami.Units.largeSpacing
+
+                    QQC2.TextField {
+                        id: appGridSearchField
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: root.appGridSearchFieldWidth
+                        Layout.maximumWidth: root.appGridSearchFieldWidth
+                        text: root.searchText
+                        color: root.textColor
+                        placeholderText: i18n("Search applications")
+                        selectByMouse: true
+
+                        onTextEdited: root.searchText = text
+
+                        Component.onCompleted: {
+                            if (appGridSearchField.visible) {
+                                root.searchFieldRef = appGridSearchField;
+                            }
+                        }
+
+                        Component.onDestruction: {
+                            if (root.searchFieldRef === appGridSearchField) {
+                                root.searchFieldRef = null;
+                            }
+                        }
+
+                        onVisibleChanged: {
+                            if (visible) {
+                                root.searchFieldRef = appGridSearchField;
+                            } else if (root.searchFieldRef === appGridSearchField) {
+                                root.searchFieldRef = null;
+                            }
+                        }
+
+                        background: Rectangle {
+                            radius: Kirigami.Units.cornerRadius
+                            color: Qt.rgba(1, 1, 1, 0.04)
+                            border.color: appGridSearchField.activeFocus ? root.selectionBorderColor : root.borderColor
+                            border.width: 1
+                        }
+
+                        leftPadding: Kirigami.Units.largeSpacing
+                        rightPadding: Kirigami.Units.largeSpacing
+                        topPadding: Kirigami.Units.smallSpacing * 1.5
+                        bottomPadding: Kirigami.Units.smallSpacing * 1.5
+
+                        Keys.onPressed: event => {
+                            root.handleNavigationKey(event);
+                        }
+
+                        Keys.onEscapePressed: event => {
+                            root.handleEscape();
+                            event.accepted = true;
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        radius: Kirigami.Units.cornerRadius
+                        color: root.surfaceColor
+                        border.color: root.borderColor
+
+                        GridView {
+                            id: appGridResultsView
+                            anchors.fill: parent
+                            anchors.margins: root.appGridResultsPadding
+                            clip: true
+                            property int responsiveColumns: {
+                                const count = root.searchResultsModel ? root.searchResultsModel.count : 0;
+                                const maxColumns = Math.max(1, Math.floor(width / root.appGridMinCellWidth));
+                                return Math.max(1, Math.min(count > 0 ? count : 1, maxColumns));
+                            }
+                            cellWidth: Math.max(root.appGridMinCellWidth, Math.min(root.appGridMaxCellWidth, Math.floor(width / responsiveColumns)))
+                            cellHeight: Math.max(Kirigami.Units.gridUnit * 8, Math.round(cellWidth * root.appGridCellAspectRatio))
+                            model: root.searchResultsModel
+                            currentIndex: root.selectedSearchIndex
+                            boundsBehavior: Flickable.StopAtBounds
+
+                            Component.onCompleted: root.appGridResultsViewRef = appGridResultsView
+
+                            Component.onDestruction: {
+                                if (root.appGridResultsViewRef === appGridResultsView) {
+                                    root.appGridResultsViewRef = null;
+                                }
+                            }
+
+                            onCurrentIndexChanged: {
+                                if (currentIndex >= 0) {
+                                    positionViewAtIndex(currentIndex, GridView.Contain);
+                                }
+                            }
+
+                            delegate: Rectangle {
+                                required property int index
+                                required property var model
+
+                                width: Math.max(1, appGridResultsView.cellWidth - root.appGridTileSpacing)
+                                height: Math.max(1, appGridResultsView.cellHeight - root.appGridTileSpacing)
+                                radius: Kirigami.Units.cornerRadius
+                                color: appGridResultMouseArea.containsMouse || root.selectedSearchIndex === index
+                                    ? root.surfaceHoverColor
+                                    : "transparent"
+                                border.width: root.selectedSearchIndex === index ? 1.5 : 1
+                                border.color: root.selectedSearchIndex === index ? root.selectionBorderColor : root.borderColor
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: Kirigami.Units.largeSpacing
+                                    spacing: 5
+
+                                    Item {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+
+                                        Kirigami.Icon {
+                                            anchors.centerIn: parent
+                                            width: root.appGridIconSize
+                                            height: root.appGridIconSize
+                                            source: model.decoration
+                                        }
+                                    }
+
+                                    PlasmaComponents3.Label {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignHCenter
+                                        color: root.textColor
+                                        elide: Text.ElideRight
+                                        text: model.display
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: appGridResultMouseArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    QQC2.ToolTip.visible: containsMouse && ((model.description || "").length > 0)
+                                    QQC2.ToolTip.delay: 300
+                                    QQC2.ToolTip.text: model.description || ""
+
+                                    onClicked: {
+                                        root.selectedSearchIndex = index;
+                                        root.triggerSelectedSearchResult();
+                                    }
+                                }
+                            }
+                        }
+
+                        PlasmaComponents3.Label {
+                            anchors.centerIn: parent
+                            color: root.mutedTextColor
+                            text: i18n("Nothing found")
+                            visible: !root.searchResultsModel || root.searchResultsModel.count === 0
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    }
+
+    Window {
+        id: dashboardWindow
+        visible: root.dashboardVisible
+        flags: Qt.Dialog | Qt.Tool | Qt.FramelessWindowHint
+        color: "transparent"
+        title: Plasmoid.title
+        x: root.dashboardX
+        y: root.dashboardY
+        width: root.dashboardWidth
+        height: root.dashboardHeight
+
+        onActiveChanged: {
+            if (!active && visible && !(root.dragging || root.keepOpenAfterDrag)) {
+                root.closeDashboard();
+            }
+        }
+
+        onVisibleChanged: {
+            if (!visible && root.dashboardVisible) {
+                root.dashboardVisible = false;
+                return;
+            }
+
+            if (visible) {
+                requestActivate();
+                Qt.callLater(root.focusDashboardView);
+            }
+        }
+
+        Shortcut {
+            context: Qt.WindowShortcut
+            enabled: dashboardWindow.visible
+            sequence: "Escape"
+            onActivated: root.handleEscape()
+        }
+
+        Loader {
+            anchors.fill: parent
+            active: dashboardWindow.visible
+            sourceComponent: dashboardContentComponent
+        }
+    }
+
+    fullRepresentation: Item {
+        implicitWidth: 0
+        implicitHeight: 0
     }
 }

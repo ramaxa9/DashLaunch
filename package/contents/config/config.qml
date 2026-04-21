@@ -8,10 +8,4 @@ ConfigModel {
         icon: "configure"
         source: "config/ConfigGeneral.qml"
     }
-
-    ConfigCategory {
-        name: i18n("Applications")
-        icon: "applications-system"
-        source: "config/ConfigApplications.qml"
-    }
 }

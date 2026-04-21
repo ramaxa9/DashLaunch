@@ -22,5 +22,9 @@
       <label>Border color used for the selected or hovered tile.</label>
       <default>#7dcfff</default>
     </entry>
+    <entry name="dashboardLayout" type="String">
+      <label>Dashboard layout mode.</label>
+      <default>default</default>
+    </entry>
   </group>
 </kcfg>

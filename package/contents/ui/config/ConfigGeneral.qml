@@ -11,6 +11,9 @@ KCM.SimpleKCM {
     id: page
 
     property string cfg_widgetIcon: ""
+    property string cfg_dashboardLayout: "default"
+    property alias cfg_showOnlyCurrentMonitor: showOnlyCurrentMonitor.checked
+    property alias cfg_showOnlyCurrentVirtualDesktop: showOnlyCurrentVirtualDesktop.checked
     property alias cfg_cursorBorderColor: cursorBorderColorField.text
 
     KIconThemes.IconDialog {
@@ -26,6 +29,27 @@ KCM.SimpleKCM {
     }
 
     Kirigami.FormLayout {
+        ComboBox {
+            id: layoutTypeCombo
+            Kirigami.FormData.label: i18n("Layout type:")
+            Layout.fillWidth: true
+            model: [i18n("Default"), i18n("App grid")]
+
+            Component.onCompleted: currentIndex = page.cfg_dashboardLayout === "app-grid" ? 1 : 0
+
+            onActivated: page.cfg_dashboardLayout = currentIndex === 1 ? "app-grid" : "default"
+        }
+
+        CheckBox {
+            id: showOnlyCurrentMonitor
+            text: i18n("Show only open windows from the current monitor")
+        }
+
+        CheckBox {
+            id: showOnlyCurrentVirtualDesktop
+            text: i18n("Show only open windows from the current virtual desktop")
+        }
+
         RowLayout {
             Kirigami.FormData.label: i18n("Widget icon:")
             spacing: Kirigami.Units.smallSpacing
@@ -82,6 +106,14 @@ KCM.SimpleKCM {
             Button {
                 text: i18n("Reset")
                 onClicked: page.cfg_cursorBorderColor = "#7dcfff"
+            }
+        }
+
+        Button {
+            text: i18n("Reset layout")
+            onClicked: {
+                page.cfg_dashboardLayout = "default"
+                layoutTypeCombo.currentIndex = 0
             }
         }
     }
