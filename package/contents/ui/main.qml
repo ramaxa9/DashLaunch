@@ -73,8 +73,8 @@ PlasmoidItem {
     readonly property int dashboardHeight: Math.max(480, Math.round(currentScreenGeometry.height * 0.9))
     readonly property int dashboardX: currentScreenGeometry.x + Math.round((currentScreenGeometry.width - dashboardWidth) / 2)
     readonly property int dashboardY: currentScreenGeometry.y + Math.round((currentScreenGeometry.height - dashboardHeight) / 2)
-    readonly property int windowGridMinCellWidth: Math.max(Kirigami.Units.gridUnit * 12, Math.round(dashboardWidth * 0.20))
-    readonly property int windowGridMaxCellWidth: Math.max(windowGridMinCellWidth, Math.round(dashboardWidth * 0.21))
+    readonly property int windowGridMinCellWidth: Math.max(Kirigami.Units.gridUnit * 12, Math.round(dashboardWidth * 0.15))
+    readonly property int windowGridMaxCellWidth: Math.max(windowGridMinCellWidth, Math.round(dashboardWidth * 0.20))
     readonly property int windowGridTargetCellWidth: Math.round((windowGridMinCellWidth + windowGridMaxCellWidth) / 2)
     readonly property bool appGridSearchActive: appGridLayout && searching
     readonly property int appGridSearchFieldWidth: Math.round(dashboardWidth * 0.2)
@@ -87,8 +87,8 @@ PlasmoidItem {
     readonly property int appGridMaxCellWidth: appGridTileSize
     readonly property real appGridCellAspectRatio: 1.0
     readonly property int appGridColumns: Math.max(1, Math.floor(appGridResultsWidth / appGridMinCellWidth))
-    readonly property int windowTileMinWidth: Math.round(dashboardWidth * 0.2)
-    readonly property int windowTileMaxWidth: Math.max(windowTileMinWidth, Math.round(dashboardWidth * 0.23))
+    readonly property int windowTileMinWidth: Math.round(dashboardWidth * 0.15)
+    readonly property int windowTileMaxWidth: Math.max(windowTileMinWidth, Math.round(dashboardWidth * 0.20))
 
     Plasmoid.title: "Dash Launch"
     Plasmoid.icon: Plasmoid.configuration.widgetIcon || "view-grid"
@@ -1510,7 +1510,7 @@ PlasmoidItem {
                                 currentIndex: root.selectedWindowIndex
                                 boundsBehavior: Flickable.StopAtBounds
                                 clip: true
-                                cellWidth: Math.max(400, Math.min(600, width / root.visibleWindowGridColumns()))
+                                cellWidth: Math.max(root.windowTileMinWidth, Math.min(root.windowTileMaxWidth, width / root.visibleWindowGridColumns()))
                                 cellHeight: cellWidth * 0.68
 
                                 function updateColumns() {
