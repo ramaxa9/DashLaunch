@@ -60,7 +60,7 @@ KCM.SimpleKCM {
     Kirigami.FormLayout {
         ComboBox {
             id: layoutTypeCombo
-            Kirigami.FormData.label: i18n("Layout type:")
+            Kirigami.FormData.label: i18n("Search layout:")
             Layout.fillWidth: true
             model: [i18n("Default"), i18n("App grid")]
 
