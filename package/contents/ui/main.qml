@@ -36,6 +36,7 @@ PlasmoidItem {
     property int desktopPreviewRevision: 0
     property bool pendingInitialWindowFocus: false
     property bool suppressHoverSelectionOnOpen: false
+    property bool suppressAutoCloseOnDragDrop: false
     property bool desktopPreviewPinned: false
     property bool keepOpenAfterDrag: false
     property bool dashboardVisible: false
@@ -803,7 +804,14 @@ PlasmoidItem {
 
         const moved = dragTargetDesktopId ? moveWindowToDesktop(draggedTaskModelIndex, dragTargetDesktopId) : false;
         if (moved) {
+            suppressAutoCloseOnDragDrop = true;
             holdDashboardOpenAfterDrag();
+            Qt.callLater(function() {
+                if (dashboardWindow.visible) {
+                    dashboardWindow.requestActivate();
+                    Qt.callLater(root.focusDashboardView);
+                }
+            });
         }
         resetDragState();
         return moved;
@@ -813,6 +821,7 @@ PlasmoidItem {
         if (!root.dashboardVisible) {
             pendingInitialWindowFocus = false;
             suppressHoverSelectionOnOpen = false;
+            suppressAutoCloseOnDragDrop = false;
             desktopPreviewPinned = false;
             navigationSection = "windows";
             clearSearch();
@@ -844,9 +853,8 @@ PlasmoidItem {
     }
 
     onKeepOpenAfterDragChanged: {
-        if (!root.keepOpenAfterDrag && root.dashboardVisible && dashboardWindow.visible && !dashboardWindow.active) {
-            root.closeDashboard();
-        }
+        // Ending drag grace should not force-close the dashboard; only explicit
+        // focus changes outside the drag flow should close it.
     }
 
     onSearchingChanged: {
@@ -1894,6 +1902,11 @@ PlasmoidItem {
         height: root.dashboardHeight
 
         onActiveChanged: {
+            if (!active && visible && root.suppressAutoCloseOnDragDrop) {
+                root.suppressAutoCloseOnDragDrop = false;
+                return;
+            }
+
             if (!active && visible && !(root.dragging || root.keepOpenAfterDrag)) {
                 root.closeDashboard();
             }
