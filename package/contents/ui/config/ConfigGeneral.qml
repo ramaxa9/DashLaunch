@@ -12,9 +12,38 @@ KCM.SimpleKCM {
 
     property string cfg_widgetIcon: ""
     property string cfg_dashboardLayout: "default"
+    property string cfg_monitorSelectionMode: "widget"
+    property string cfg_targetMonitorName: ""
     property alias cfg_showOnlyCurrentMonitor: showOnlyCurrentMonitor.checked
     property alias cfg_showOnlyCurrentVirtualDesktop: showOnlyCurrentVirtualDesktop.checked
     property alias cfg_cursorBorderColor: cursorBorderColorField.text
+    property alias cfg_enableFullscreen: enableFullscreen.checked
+    readonly property var availableScreenNames: {
+        const screens = Qt.application.screens || [];
+        const names = [];
+
+        for (let index = 0; index < screens.length; ++index) {
+            const screenName = String(screens[index].name || "").trim();
+            names.push(screenName.length > 0 ? screenName : i18n("Monitor %1", index + 1));
+        }
+
+        return names;
+    }
+
+    function monitorModeIndex() {
+        switch (cfg_monitorSelectionMode) {
+        case "follow-mouse":
+            return 1;
+        case "specific":
+            return 2;
+        default:
+            return 0;
+        }
+    }
+
+    function targetMonitorIndex() {
+        return availableScreenNames.indexOf(cfg_targetMonitorName);
+    }
 
     KIconThemes.IconDialog {
         id: iconDialog
@@ -40,6 +69,49 @@ KCM.SimpleKCM {
             onActivated: page.cfg_dashboardLayout = currentIndex === 1 ? "app-grid" : "default"
         }
 
+        ComboBox {
+            id: monitorModeCombo
+            Kirigami.FormData.label: i18n("Open on monitor:")
+            Layout.fillWidth: true
+            model: [i18n("Widget monitor"), i18n("Follow mouse"), i18n("Specific monitor")]
+
+            Component.onCompleted: currentIndex = page.monitorModeIndex()
+
+            onActivated: {
+                page.cfg_monitorSelectionMode = currentIndex === 1 ? "follow-mouse"
+                    : currentIndex === 2 ? "specific"
+                    : "widget"
+
+                if (page.cfg_monitorSelectionMode === "specific"
+                    && !page.cfg_targetMonitorName
+                    && page.availableScreenNames.length > 0) {
+                    page.cfg_targetMonitorName = page.availableScreenNames[0]
+                }
+            }
+        }
+
+        ComboBox {
+            id: targetMonitorCombo
+            Kirigami.FormData.label: i18n("Specific monitor:")
+            Layout.fillWidth: true
+            visible: page.cfg_monitorSelectionMode === "specific"
+            model: page.availableScreenNames
+
+            Component.onCompleted: currentIndex = Math.max(0, page.targetMonitorIndex())
+
+            onVisibleChanged: {
+                if (visible) {
+                    currentIndex = Math.max(0, page.targetMonitorIndex())
+                }
+            }
+
+            onActivated: {
+                if (currentIndex >= 0 && currentIndex < page.availableScreenNames.length) {
+                    page.cfg_targetMonitorName = page.availableScreenNames[currentIndex]
+                }
+            }
+        }
+
         CheckBox {
             id: showOnlyCurrentMonitor
             text: i18n("Show only open windows from the current monitor")
@@ -48,6 +120,11 @@ KCM.SimpleKCM {
         CheckBox {
             id: showOnlyCurrentVirtualDesktop
             text: i18n("Show only open windows from the current virtual desktop")
+        }
+
+        CheckBox {
+            id: enableFullscreen
+            text: i18n("Enable fullscreen mode")
         }
 
         RowLayout {

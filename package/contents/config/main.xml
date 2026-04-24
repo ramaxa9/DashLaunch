@@ -26,5 +26,9 @@
       <label>Dashboard layout mode.</label>
       <default>default</default>
     </entry>
+    <entry name="enableFullscreen" type="Bool">
+      <label>Enable fullscreen mode.</label>
+      <default>false</default>
+    </entry>
   </group>
 </kcfg>

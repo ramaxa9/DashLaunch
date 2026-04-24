@@ -32,14 +32,18 @@ PlasmoidItem {
     property int selectedSearchIndex: 0
     property int selectedWindowIndex: -1
     property int selectedDesktopIndex: -1
+    property int selectedScreenIndex: -1
     property int windowGridColumns: 1
     property int desktopPreviewRevision: 0
     property bool pendingInitialWindowFocus: false
     property bool suppressHoverSelectionOnOpen: false
     property bool suppressAutoCloseOnDragDrop: false
     property bool desktopPreviewPinned: false
+    property bool screenPreviewPinned: false
     property bool keepOpenAfterDrag: false
     property bool dashboardVisible: false
+    property bool dashboardWindowVisible: false
+    property bool dashboardContentVisible: false
     property string navigationSection: "windows"
     property var fullViewRef: null
     property var windowsGridRef: null
@@ -56,6 +60,12 @@ PlasmoidItem {
     property string draggedWindowTitle: ""
     property string draggedWindowAppName: ""
     property var draggedWindowIcon: null
+    property bool fullscreenMode: Plasmoid.configuration.enableFullscreen || false
+    property string monitorSelectionMode: Plasmoid.configuration.monitorSelectionMode || "widget"
+    property string targetMonitorName: Plasmoid.configuration.targetMonitorName || ""
+    property string followMouseMonitorName: ""
+    property bool pendingFollowMouseOpen: false
+    readonly property int dashboardFadeDuration: 140
 
     readonly property bool dragging: draggedWindowRow >= 0 && draggedTaskModelIndex && draggedTaskModelIndex.valid
     readonly property bool searching: searchText.length > 0
@@ -66,12 +76,20 @@ PlasmoidItem {
     readonly property int desktopPreviewHeight: currentScreenGeometry.width > 0
         ? Math.round(desktopPreviewWidth * currentScreenGeometry.height / currentScreenGeometry.width)
         : 225
+    readonly property int screenPreviewWidth: Math.max(Kirigami.Units.gridUnit * 8, Math.round(desktopPreviewWidth * 0.34))
     readonly property string previewDesktopId: !searching && desktopPreviewPinned && selectedDesktopIndex >= 0
         ? desktopIdAt(selectedDesktopIndex)
         : ""
+    readonly property string previewScreenName: !searching && screenPreviewPinned && selectedScreenIndex >= 0
+        ? screenNameAt(selectedScreenIndex)
+        : ""
     readonly property bool previewingDesktopWindows: previewDesktopId.length > 0
-    readonly property int dashboardWidth: Math.max(640, Math.round(currentScreenGeometry.width * 0.9))
-    readonly property int dashboardHeight: Math.max(480, Math.round(currentScreenGeometry.height * 0.9))
+    readonly property bool previewingScreenWindows: previewScreenName.length > 0
+    readonly property rect activePreviewScreenGeometry: previewingScreenWindows
+        ? screenGeometryAt(selectedScreenIndex)
+        : currentScreenGeometry
+    readonly property int dashboardWidth: Math.max(640, Math.round(currentScreenGeometry.width * 0.95))
+    readonly property int dashboardHeight: Math.max(480, Math.round(currentScreenGeometry.height * 0.95))
     readonly property int dashboardX: currentScreenGeometry.x + Math.round((currentScreenGeometry.width - dashboardWidth) / 2)
     readonly property int dashboardY: currentScreenGeometry.y + Math.round((currentScreenGeometry.height - dashboardHeight) / 2)
     readonly property int windowGridMinCellWidth: Math.max(Kirigami.Units.gridUnit * 12, Math.round(dashboardWidth * 0.15))
@@ -144,13 +162,24 @@ PlasmoidItem {
     }
 
     function closeDashboard() {
+        if (!root.dashboardVisible && !root.dashboardWindowVisible) {
+            return;
+        }
+
         root.dashboardVisible = false;
+        root.dashboardContentVisible = false;
         clearSearch();
         selectedWindowIndex = -1;
         selectedDesktopIndex = -1;
         desktopPreviewPinned = false;
         navigationSection = "windows";
         resetDragState();
+
+        if (!dashboardWindowVisible) {
+            return;
+        }
+
+        dashboardHideTimer.restart();
     }
 
     function taskIndex(row) {
@@ -196,6 +225,75 @@ PlasmoidItem {
         }
 
         return i18n("Desktop");
+    }
+
+    function screenCount() {
+        const screens = Qt.application.screens;
+        return screens ? screens.length : 0;
+    }
+
+    function screenAt(index) {
+        const screens = Qt.application.screens;
+        if (!screens || index < 0 || index >= screens.length) {
+            return null;
+        }
+
+        return screens[index];
+    }
+
+    function screenNameAt(index) {
+        const screen = screenAt(index);
+        return screen ? String(screen.name || "") : "";
+    }
+
+    function screenLabelAt(index) {
+        const screen = screenAt(index);
+        if (!screen) {
+            return i18n("Monitor");
+        }
+
+        return String(screen.name || "").trim() || i18n("Monitor %1", index + 1);
+    }
+
+    function screenGeometryAt(index) {
+        const screen = screenAt(index);
+        if (!screen) {
+            return currentScreenGeometry;
+        }
+
+        const sx = screen.virtualX !== undefined ? screen.virtualX : 0;
+        const sy = screen.virtualY !== undefined ? screen.virtualY : 0;
+        return Qt.rect(sx, sy, screen.width, screen.height);
+    }
+
+    function screenIndexByName(screenName) {
+        const screens = Qt.application.screens;
+        if (!screens || !screenName) {
+            return -1;
+        }
+
+        for (let index = 0; index < screens.length; ++index) {
+            if (String(screens[index].name || "") === screenName) {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    function currentDashboardScreenIndex() {
+        const currentScreen = currentScreenObject();
+        if (!currentScreen) {
+            return -1;
+        }
+
+        const currentName = String(currentScreen.name || "");
+        if (currentName.length > 0) {
+            return screenIndexByName(currentName);
+        }
+
+        const screens = Qt.application.screens || [];
+        return screens.indexOf(currentScreen);
     }
 
     function taskAppName(row) {
@@ -256,6 +354,80 @@ PlasmoidItem {
         return dashboardWindow.visible ? dashboardWindow : null;
     }
 
+    function primaryScreenObject() {
+        const screens = Qt.application.screens;
+        if (!screens || screens.length === 0) {
+            return null;
+        }
+
+        return screens[0];
+    }
+
+    function screenForName(screenName) {
+        if (!screenName) {
+            return null;
+        }
+
+        const screens = Qt.application.screens;
+        if (!screens || screens.length === 0) {
+            return null;
+        }
+
+        for (let index = 0; index < screens.length; ++index) {
+            const screen = screens[index];
+            if (screen && screen.name === screenName) {
+                return screen;
+            }
+        }
+
+        return null;
+    }
+
+    function plasmoidScreenObject() {
+        const screens = Qt.application.screens;
+        if (!screens || screens.length === 0) {
+            return null;
+        }
+
+        if (Plasmoid.screen && Plasmoid.screen.width !== undefined) {
+            return Plasmoid.screen;
+        }
+
+        if (typeof Plasmoid.screen === "number" && Plasmoid.screen >= 0 && Plasmoid.screen < screens.length) {
+            return screens[Plasmoid.screen];
+        }
+
+        return null;
+    }
+
+    function currentScreenObject() {
+        const screens = Qt.application.screens;
+        if (!screens || screens.length === 0) {
+            return null;
+        }
+
+        const specificScreen = monitorSelectionMode === "specific" ? screenForName(targetMonitorName) : null;
+        if (specificScreen) {
+            return specificScreen;
+        }
+
+        const followMouseScreen = monitorSelectionMode === "follow-mouse" ? screenForName(followMouseMonitorName) : null;
+        if (followMouseScreen) {
+            return followMouseScreen;
+        }
+
+        const plasmoidScreen = plasmoidScreenObject();
+        if (plasmoidScreen) {
+            return plasmoidScreen;
+        }
+
+        if (dashboardWindow.screen) {
+            return dashboardWindow.screen;
+        }
+
+        return primaryScreenObject();
+    }
+
     function updateCurrentScreenGeometry() {
         const screens = Qt.application.screens;
         if (!screens || screens.length === 0) {
@@ -263,26 +435,98 @@ PlasmoidItem {
             return;
         }
 
-        let resolvedScreen = null;
-        const plasmoidScreenIndex = Plasmoid.screen;
-        if (plasmoidScreenIndex >= 0 && plasmoidScreenIndex < screens.length) {
-            resolvedScreen = screens[plasmoidScreenIndex];
-        }
-
-        if (!resolvedScreen) {
-            const window = root.expandedWindow();
-            if (window && window.screen) {
-                resolvedScreen = window.screen;
-            }
-        }
-
-        if (!resolvedScreen) {
-            resolvedScreen = screens[0];
-        }
+        const resolvedScreen = currentScreenObject() || screens[0];
 
         const sx = resolvedScreen.virtualX !== undefined ? resolvedScreen.virtualX : 0;
         const sy = resolvedScreen.virtualY !== undefined ? resolvedScreen.virtualY : 0;
         currentScreenGeometry = Qt.rect(sx, sy, resolvedScreen.width, resolvedScreen.height);
+    }
+
+    function applyDashboardWindowPlacement() {
+        updateCurrentScreenGeometry();
+
+        const resolvedScreen = currentScreenObject();
+        if (resolvedScreen) {
+            dashboardWindow.screen = resolvedScreen;
+        }
+
+        if (fullscreenMode) {
+            dashboardWindow.x = currentScreenGeometry.x;
+            dashboardWindow.y = currentScreenGeometry.y;
+            dashboardWindow.width = currentScreenGeometry.width;
+            dashboardWindow.height = currentScreenGeometry.height;
+        } else {
+            dashboardWindow.x = dashboardX;
+            dashboardWindow.y = dashboardY;
+            dashboardWindow.width = dashboardWidth;
+            dashboardWindow.height = dashboardHeight;
+        }
+
+        if (!dashboardWindow.visible) {
+            return;
+        }
+
+        applyDashboardWindowMode();
+    }
+
+    function applyDashboardWindowMode() {
+        if (!dashboardWindow.visible) {
+            return;
+        }
+
+        if (fullscreenMode) {
+            Qt.callLater(() => dashboardWindow.showFullScreen());
+        }
+    }
+
+    function requestFollowMouseMonitor() {
+        pendingFollowMouseOpen = true;
+        const command = "qdbus6 org.kde.KWin /KWin org.kde.KWin.activeOutputName";
+        activeOutputQuery.disconnectSource(command);
+        activeOutputQuery.connectSource(command);
+    }
+
+    function finishOpenDashboard() {
+        dashboardHideTimer.stop();
+        dashboardContentVisible = false;
+        applyDashboardWindowPlacement();
+        dashboardVisible = true;
+        dashboardWindowVisible = true;
+    }
+
+    function startDashboardContentFadeIn() {
+        Qt.callLater(function() {
+            if (!root.dashboardVisible || !root.dashboardWindowVisible) {
+                return;
+            }
+
+            root.dashboardContentVisible = true;
+        });
+    }
+
+    function handleFollowMouseMonitorResult(outputName) {
+        pendingFollowMouseOpen = false;
+        followMouseMonitorName = String(outputName || "").trim();
+        finishOpenDashboard();
+    }
+
+    function openDashboard() {
+        if (monitorSelectionMode === "follow-mouse") {
+            requestFollowMouseMonitor();
+            return;
+        }
+
+        finishOpenDashboard();
+    }
+
+    function toggleDashboard() {
+        selectedScreenIndex = -1;
+        if (dashboardVisible) {
+        screenPreviewPinned = false;
+            closeDashboard();
+        } else {
+            openDashboard();
+        }
     }
 
     function syncDesktopSelection() {
@@ -301,6 +545,19 @@ PlasmoidItem {
 
         if (selectedDesktopIndex < 0 || selectedDesktopIndex >= desktopIds.length) {
             selectedDesktopIndex = Math.max(0, currentIndex);
+        }
+    }
+
+    function syncScreenSelection() {
+        const count = screenCount();
+        if (count <= 0) {
+            selectedScreenIndex = -1;
+            screenPreviewPinned = false;
+            return;
+        }
+
+        if (selectedScreenIndex < 0 || selectedScreenIndex >= count) {
+            selectedScreenIndex = Math.max(0, currentDashboardScreenIndex());
         }
     }
 
@@ -326,6 +583,7 @@ PlasmoidItem {
             return;
         }
 
+        syncScreenSelection();
         syncDesktopSelection();
         navigationSection = selectedDesktopIndex >= 0 ? "desktops" : "windows";
     }
@@ -376,6 +634,12 @@ PlasmoidItem {
         selectedDesktopIndex = index;
         navigationSection = "desktops";
         desktopPreviewPinned = pinPreview;
+    }
+
+    function selectScreen(index, pinPreview) {
+        selectedScreenIndex = index;
+        screenPreviewPinned = pinPreview;
+        refreshWindowModels();
     }
 
     function moveSearchSelection(step) {
@@ -658,12 +922,27 @@ PlasmoidItem {
         return desktopIds.indexOf(desktopId) >= 0;
     }
 
+    function taskBelongsToScreen(row, screenGeometry) {
+        if (!screenGeometry || screenGeometry.width <= 0 || screenGeometry.height <= 0) {
+            return false;
+        }
+
+        if (desktopTaskData(row, TaskManager.AbstractTasksModel.SkipTaskbar) || isDashboardTask(desktopWindowsModel, row)) {
+            return false;
+        }
+
+        const geometry = desktopTaskData(row, TaskManager.AbstractTasksModel.Geometry);
+        const clippedGeometry = intersectRects(geometry, screenGeometry);
+        return clippedGeometry.width > 0 && clippedGeometry.height > 0;
+    }
+
     function desktopWindowIndexes(desktopId) {
         const indexes = [];
+        const previewScreenGeometry = activePreviewScreenGeometry;
 
         for (let row = 0; row < desktopWindowsModel.count; ++row) {
             const geometry = desktopTaskData(row, TaskManager.AbstractTasksModel.Geometry);
-            const clippedGeometry = intersectRects(geometry, currentScreenGeometry);
+            const clippedGeometry = intersectRects(geometry, previewScreenGeometry);
 
             if (clippedGeometry.width <= 0 || clippedGeometry.height <= 0) {
                 continue;
@@ -682,23 +961,62 @@ PlasmoidItem {
     }
 
     function desktopWindowPreviewRect(row, previewWidth, previewHeight) {
+        const previewScreenGeometry = activePreviewScreenGeometry;
         const geometry = desktopTaskData(row, TaskManager.AbstractTasksModel.Geometry);
-        const clippedGeometry = intersectRects(geometry, currentScreenGeometry);
+        const clippedGeometry = intersectRects(geometry, previewScreenGeometry);
 
-        if (clippedGeometry.width <= 0 || clippedGeometry.height <= 0 || currentScreenGeometry.width <= 0 || currentScreenGeometry.height <= 0) {
+        if (clippedGeometry.width <= 0 || clippedGeometry.height <= 0 || previewScreenGeometry.width <= 0 || previewScreenGeometry.height <= 0) {
             return Qt.rect(0, 0, 0, 0);
         }
 
-        const localX = clippedGeometry.x - currentScreenGeometry.x;
-        const localY = clippedGeometry.y - currentScreenGeometry.y;
-        const scaleX = previewWidth / currentScreenGeometry.width;
-        const scaleY = previewHeight / currentScreenGeometry.height;
+        const localX = clippedGeometry.x - previewScreenGeometry.x;
+        const localY = clippedGeometry.y - previewScreenGeometry.y;
+        const scaleX = previewWidth / previewScreenGeometry.width;
+        const scaleY = previewHeight / previewScreenGeometry.height;
 
         return Qt.rect(
             Math.round(localX * scaleX),
             Math.round(localY * scaleY),
             Math.max(10, Math.round(clippedGeometry.width * scaleX)),
             Math.max(8, Math.round(clippedGeometry.height * scaleY))
+        );
+    }
+
+    function screenWindowIndexes(screenName) {
+        const indexes = [];
+        const screenGeometry = screenGeometryAt(screenIndexByName(screenName));
+
+        for (let row = 0; row < desktopWindowsModel.count; ++row) {
+            if (taskBelongsToScreen(row, screenGeometry)) {
+                indexes.push(row);
+            }
+        }
+
+        return indexes;
+    }
+
+    function screenWindowCount(screenName) {
+        return screenWindowIndexes(screenName).length;
+    }
+
+    function screenWindowPreviewRect(row, screenGeometry, previewWidth, previewHeight) {
+        const geometry = desktopTaskData(row, TaskManager.AbstractTasksModel.Geometry);
+        const clippedGeometry = intersectRects(geometry, screenGeometry);
+
+        if (clippedGeometry.width <= 0 || clippedGeometry.height <= 0 || screenGeometry.width <= 0 || screenGeometry.height <= 0) {
+            return Qt.rect(0, 0, 0, 0);
+        }
+
+        const localX = clippedGeometry.x - screenGeometry.x;
+        const localY = clippedGeometry.y - screenGeometry.y;
+        const scaleX = previewWidth / screenGeometry.width;
+        const scaleY = previewHeight / screenGeometry.height;
+
+        return Qt.rect(
+            Math.round(localX * scaleX),
+            Math.round(localY * scaleY),
+            Math.max(8, Math.round(clippedGeometry.width * scaleX)),
+            Math.max(6, Math.round(clippedGeometry.height * scaleY))
         );
     }
 
@@ -823,6 +1141,7 @@ PlasmoidItem {
             suppressHoverSelectionOnOpen = false;
             suppressAutoCloseOnDragDrop = false;
             desktopPreviewPinned = false;
+            screenPreviewPinned = false;
             navigationSection = "windows";
             clearSearch();
             resetDragState();
@@ -832,6 +1151,7 @@ PlasmoidItem {
         pendingInitialWindowFocus = true;
         suppressHoverSelectionOnOpen = true;
         updateCurrentScreenGeometry();
+        syncScreenSelection();
         refreshWindowModels();
         syncDesktopSelection();
         focusInitialSelection();
@@ -844,11 +1164,7 @@ PlasmoidItem {
     onExpandedChanged: {
         if (root.expanded) {
             root.expanded = false;
-            if (root.dashboardVisible) {
-                root.closeDashboard();
-            } else {
-                root.dashboardVisible = true;
-            }
+            root.toggleDashboard();
         }
     }
 
@@ -871,6 +1187,13 @@ PlasmoidItem {
         windowsModel.invalidate();
         syncWindowSelection();
         refreshWindowGridLayout();
+    }
+
+    onPreviewScreenNameChanged: {
+        windowsModel.invalidate();
+        syncWindowSelection();
+        refreshWindowGridLayout();
+        refreshDesktopPreviews();
     }
 
     onFilterCurrentMonitorChanged: {
@@ -951,6 +1274,17 @@ PlasmoidItem {
         }
     }
 
+    Plasma5Support.DataSource {
+        id: activeOutputQuery
+        engine: "executable"
+        connectedSources: []
+
+        onNewData: function(sourceName, data) {
+            disconnectSource(sourceName);
+            root.handleFollowMouseMonitorResult(data.stdout);
+        }
+    }
+
     Timer {
         id: keepOpenAfterDragTimer
         interval: 350
@@ -967,8 +1301,8 @@ PlasmoidItem {
         activity: ""
         virtualDesktop: root.previewingDesktopWindows ? root.previewDesktopId : virtualDesktopInfo.currentDesktop
         filterByVirtualDesktop: root.filterCurrentVirtualDesktop || root.previewingDesktopWindows
-        filterByScreen: root.filterCurrentMonitor
-        screenGeometry: root.currentScreenGeometry
+        filterByScreen: root.filterCurrentMonitor || root.previewingScreenWindows
+        screenGeometry: root.activePreviewScreenGeometry
         groupInline: false
         groupMode: TaskManager.TasksModel.GroupDisabled
         hideActivatedLaunchers: true
@@ -984,7 +1318,7 @@ PlasmoidItem {
         id: desktopWindowsModel
         activity: ""
         filterByVirtualDesktop: false
-        filterByScreen: root.filterCurrentMonitor
+        filterByScreen: false
         screenGeometry: root.currentScreenGeometry
         groupInline: false
         groupMode: TaskManager.TasksModel.GroupDisabled
@@ -1037,7 +1371,7 @@ PlasmoidItem {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.dashboardVisible = !root.dashboardVisible
+            onClicked: root.toggleDashboard()
         }
     }
 
@@ -1048,6 +1382,7 @@ PlasmoidItem {
         id: fullView
         anchors.fill: parent
         focus: root.dashboardVisible
+        opacity: root.dashboardContentVisible ? 1.0 : 0.0
 
         Component.onCompleted: {
             root.fullViewRef = fullView;
@@ -1057,6 +1392,12 @@ PlasmoidItem {
         Component.onDestruction: {
             if (root.fullViewRef === fullView) {
                 root.fullViewRef = null;
+            }
+        }
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: root.dashboardFadeDuration
             }
         }
 
@@ -1352,152 +1693,311 @@ PlasmoidItem {
 
                         Item {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: virtualDesktopInfo.desktopIds.length > 0 ? root.desktopPreviewHeight + (Kirigami.Units.gridUnit * 2.7) : 0
-                            visible: virtualDesktopInfo.desktopIds.length > 0
+                            Layout.preferredHeight: (root.screenCount() > 0 || virtualDesktopInfo.desktopIds.length > 0)
+                                ? root.desktopPreviewHeight + (Kirigami.Units.gridUnit * 2.7)
+                                : 0
+                            visible: root.screenCount() > 0 || virtualDesktopInfo.desktopIds.length > 0
 
-                            QQC2.ScrollView {
+                            RowLayout {
                                 anchors.fill: parent
-                                clip: true
-                                QQC2.ScrollBar.vertical.policy: QQC2.ScrollBar.AlwaysOff
+                                spacing: Kirigami.Units.largeSpacing
 
-                                ListView {
-                                    id: desktopPreviewList
-                                    anchors.fill: parent
-                                    currentIndex: root.selectedDesktopIndex
-                                    spacing: Kirigami.Units.largeSpacing
-                                    orientation: ListView.Horizontal
-                                    model: virtualDesktopInfo.desktopIds
-                                    boundsBehavior: Flickable.StopAtBounds
-                                    readonly property real centeredContentWidth: Math.max(0, (count * root.desktopPreviewWidth) + (Math.max(0, count - 1) * spacing))
-                                    readonly property real sideMargin: Math.max(0, (width - centeredContentWidth) / 2)
-                                    leftMargin: sideMargin
-                                    rightMargin: sideMargin
+                                Item {
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 0
+                                    Layout.fillHeight: true
+                                    visible: root.screenCount() > 0
 
-                                    onCurrentIndexChanged: {
-                                        if (currentIndex >= 0) {
-                                            positionViewAtIndex(currentIndex, ListView.Contain);
-                                        }
-                                    }
+                                    QQC2.ScrollView {
+                                        anchors.fill: parent
+                                        clip: true
+                                        QQC2.ScrollBar.vertical.policy: QQC2.ScrollBar.AlwaysOff
 
-                                    delegate: Rectangle {
-                                        id: desktopCard
-                                        required property int index
-                                        required property var modelData
-                                        readonly property string desktopId: modelData
-                                        readonly property bool isCurrentDesktop: desktopId === virtualDesktopInfo.currentDesktop
-                                        readonly property bool isPreviewing: root.previewDesktopId === desktopId
-                                        readonly property bool isSelected: !root.searching && root.navigationSection === "desktops" && root.selectedDesktopIndex === index
-                                        readonly property bool isDragTarget: root.dragging && root.dragTargetDesktopId === desktopId
-                                        readonly property int previewWindowCount: {
-                                            root.desktopPreviewRevision;
-                                            return root.desktopWindowCount(desktopId);
-                                        }
-
-                                        width: root.desktopPreviewWidth
-                                        height: root.desktopPreviewHeight + (Kirigami.Units.gridUnit * 1.8)
-                                        radius: Kirigami.Units.cornerRadius
-
-                                        Component.onCompleted: root.registerDesktopCard(index, desktopCard)
-                                        Component.onDestruction: root.unregisterDesktopCard(index, desktopCard)
-
-                                        color: desktopMouseArea.containsMouse || isDragTarget || isSelected || isPreviewing || isCurrentDesktop
-                                            ? Qt.rgba(1, 1, 1, 0.08)
-                                            : "transparent"
-                                        border.width: isDragTarget || isSelected || isPreviewing ? 1.8 : (isCurrentDesktop ? 1.5 : 1)
-                                        border.color: isDragTarget || isSelected || isPreviewing || isCurrentDesktop
-                                            ? root.selectionBorderColor
-                                            : root.borderColor
-
-                                        ColumnLayout {
+                                        ListView {
+                                            id: screenPreviewList
                                             anchors.fill: parent
-                                            anchors.margins: Kirigami.Units.smallSpacing
+                                            currentIndex: root.selectedScreenIndex
                                             spacing: Kirigami.Units.smallSpacing
+                                            orientation: ListView.Horizontal
+                                            model: root.screenCount()
+                                            boundsBehavior: Flickable.StopAtBounds
+                                            readonly property real centeredContentWidth: Math.max(0, (count * root.desktopPreviewWidth) + (Math.max(0, count - 1) * spacing))
+                                            readonly property real sideMargin: Math.max(0, (width - centeredContentWidth) / 2)
+                                            leftMargin: sideMargin
+                                            rightMargin: sideMargin
 
-                                            Item {
-                                                Layout.fillWidth: true
-                                                Layout.preferredHeight: root.desktopPreviewHeight
+                                            onCurrentIndexChanged: {
+                                                if (currentIndex >= 0) {
+                                                    positionViewAtIndex(currentIndex, ListView.Contain);
+                                                }
+                                            }
 
-                                                Rectangle {
-                                                    anchors.fill: parent
-                                                    radius: Kirigami.Units.cornerRadius
-                                                    color: Qt.rgba(1, 1, 1, 0.035)
-                                                    border.color: Qt.rgba(1, 1, 1, isCurrentDesktop ? 0.12 : 0.06)
+                                            delegate: Rectangle {
+                                                id: screenCard
+                                                required property int index
+                                                readonly property string screenName: root.screenNameAt(index)
+                                                readonly property rect screenGeometry: root.screenGeometryAt(index)
+                                                readonly property bool isCurrentScreen: index === root.currentDashboardScreenIndex()
+                                                readonly property bool isPreviewing: root.previewScreenName === screenName
+                                                readonly property bool isSelected: !root.searching && root.selectedScreenIndex === index
+                                                readonly property int previewWindowCount: {
+                                                    root.desktopPreviewRevision;
+                                                    return root.screenWindowCount(screenName);
                                                 }
 
-                                                Repeater {
-                                                    model: root.dashboardVisible
-                                                        ? (function() {
-                                                            root.desktopPreviewRevision;
-                                                            return root.desktopWindowIndexes(desktopCard.desktopId);
-                                                        })()
-                                                        : []
+                                                width: root.desktopPreviewWidth
+                                                height: root.desktopPreviewHeight + (Kirigami.Units.gridUnit * 1.8)
+                                                radius: Kirigami.Units.cornerRadius
+                                                color: screenMouseArea.containsMouse || isSelected || isPreviewing || isCurrentScreen
+                                                    ? Qt.rgba(1, 1, 1, 0.08)
+                                                    : "transparent"
+                                                border.width: isSelected || isPreviewing ? 1.8 : (isCurrentScreen ? 1.5 : 1)
+                                                border.color: isSelected || isPreviewing || isCurrentScreen
+                                                    ? root.selectionBorderColor
+                                                    : root.borderColor
 
-                                                    delegate: Rectangle {
-                                                        required property int modelData
-                                                        readonly property rect previewRect: {
-                                                            root.desktopPreviewRevision;
-                                                            return root.desktopWindowPreviewRect(modelData, parent.width, parent.height);
+                                                ColumnLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: Kirigami.Units.smallSpacing
+                                                    spacing: Kirigami.Units.smallSpacing
+
+                                                    Item {
+                                                        Layout.fillWidth: true
+                                                        Layout.preferredHeight: root.desktopPreviewHeight
+
+                                                        Rectangle {
+                                                            anchors.fill: parent
+                                                            radius: Kirigami.Units.cornerRadius
+                                                            color: Qt.rgba(1, 1, 1, 0.035)
+                                                            border.color: Qt.rgba(1, 1, 1, screenCard.isCurrentScreen ? 0.12 : 0.06)
                                                         }
 
-                                                        x: previewRect.x
-                                                        y: previewRect.y
-                                                        width: previewRect.width
-                                                        height: previewRect.height
-                                                        radius: Math.min(Kirigami.Units.cornerRadius, height / 3)
-                                                        color: Qt.rgba(1, 1, 1, 0.09)
-                                                        border.width: 1
-                                                        border.color: Qt.rgba(1, 1, 1, 0.12)
+                                                        Repeater {
+                                                            model: root.dashboardVisible
+                                                                ? (function() {
+                                                                    root.desktopPreviewRevision;
+                                                                    return root.screenWindowIndexes(screenCard.screenName);
+                                                                })()
+                                                                : []
 
-                                                        Kirigami.Icon {
+                                                            delegate: Rectangle {
+                                                                required property int modelData
+                                                                readonly property rect previewRect: {
+                                                                    root.desktopPreviewRevision;
+                                                                    return root.screenWindowPreviewRect(modelData, screenCard.screenGeometry, parent.width, parent.height);
+                                                                }
+
+                                                                x: previewRect.x
+                                                                y: previewRect.y
+                                                                width: previewRect.width
+                                                                height: previewRect.height
+                                                                radius: Math.min(Kirigami.Units.cornerRadius, height / 3)
+                                                                color: Qt.rgba(1, 1, 1, 0.09)
+                                                                border.width: 1
+                                                                border.color: Qt.rgba(1, 1, 1, 0.12)
+
+                                                                Kirigami.Icon {
+                                                                    anchors.centerIn: parent
+                                                                    width: Math.max(10, Math.min(parent.width - 4, parent.height - 4, Kirigami.Units.iconSizes.small))
+                                                                    height: width
+                                                                    source: root.desktopTaskData(modelData, Qt.DecorationRole)
+                                                                }
+                                                            }
+                                                        }
+
+                                                        PlasmaComponents3.Label {
                                                             anchors.centerIn: parent
-                                                            width: Math.max(10, Math.min(parent.width - 4, parent.height - 4, Kirigami.Units.iconSizes.small))
-                                                            height: width
-                                                            source: root.desktopTaskData(modelData, Qt.DecorationRole)
+                                                            visible: screenCard.previewWindowCount === 0
+                                                            color: root.mutedTextColor
+                                                            text: i18n("Empty")
+                                                            font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.78)
+                                                        }
+                                                    }
+
+                                                    RowLayout {
+                                                        Layout.fillWidth: true
+                                                        spacing: Kirigami.Units.smallSpacing
+
+                                                        PlasmaComponents3.Label {
+                                                            Layout.fillWidth: true
+                                                            color: root.textColor
+                                                            elide: Text.ElideRight
+                                                            font.weight: screenCard.isSelected || screenCard.isCurrentScreen ? Font.DemiBold : Font.Normal
+                                                            text: root.screenLabelAt(index)
+                                                        }
+
+                                                        PlasmaComponents3.Label {
+                                                            color: screenCard.isCurrentScreen || screenCard.isPreviewing
+                                                                ? root.selectionBorderColor
+                                                                : root.mutedTextColor
+                                                            text: screenCard.previewWindowCount
                                                         }
                                                     }
                                                 }
 
-                                                PlasmaComponents3.Label {
-                                                    anchors.centerIn: parent
-                                                    visible: desktopCard.previewWindowCount === 0
-                                                    color: root.mutedTextColor
-                                                    text: i18n("Empty")
-                                                    font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.78)
-                                                }
-                                            }
-
-                                            RowLayout {
-                                                Layout.fillWidth: true
-                                                spacing: Kirigami.Units.smallSpacing
-
-                                                PlasmaComponents3.Label {
-                                                    Layout.fillWidth: true
-                                                    color: root.textColor
-                                                    elide: Text.ElideRight
-                                                    font.weight: desktopCard.isSelected || desktopCard.isCurrentDesktop ? Font.DemiBold : Font.Normal
-                                                    text: root.desktopName(desktopCard.desktopId)
-                                                }
-
-                                                PlasmaComponents3.Label {
-                                                    color: desktopCard.isCurrentDesktop || desktopCard.isPreviewing || desktopCard.isDragTarget
-                                                        ? root.selectionBorderColor
-                                                        : root.mutedTextColor
-                                                    text: desktopCard.previewWindowCount
+                                                MouseArea {
+                                                    id: screenMouseArea
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.selectScreen(index, true)
                                                 }
                                             }
                                         }
+                                    }
+                                }
 
-                                        MouseArea {
-                                            id: desktopMouseArea
+                                Item {
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 0
+                                    Layout.fillHeight: true
+                                    visible: virtualDesktopInfo.desktopIds.length > 0
+
+                                    QQC2.ScrollView {
+                                        anchors.fill: parent
+                                        clip: true
+                                        QQC2.ScrollBar.vertical.policy: QQC2.ScrollBar.AlwaysOff
+
+                                        ListView {
+                                            id: desktopPreviewList
                                             anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
+                                            currentIndex: root.selectedDesktopIndex
+                                            spacing: Kirigami.Units.largeSpacing
+                                            orientation: ListView.Horizontal
+                                            model: virtualDesktopInfo.desktopIds
+                                            boundsBehavior: Flickable.StopAtBounds
+                                            readonly property real centeredContentWidth: Math.max(0, (count * root.desktopPreviewWidth) + (Math.max(0, count - 1) * spacing))
+                                            readonly property real sideMargin: Math.max(0, (width - centeredContentWidth) / 2)
+                                            leftMargin: sideMargin
+                                            rightMargin: sideMargin
 
-                                            onClicked: root.selectDesktop(index, true)
+                                            onCurrentIndexChanged: {
+                                                if (currentIndex >= 0) {
+                                                    positionViewAtIndex(currentIndex, ListView.Contain);
+                                                }
+                                            }
 
-                                            onDoubleClicked: {
-                                                root.selectDesktop(index, true);
-                                                root.triggerSelectedDesktop();
+                                            delegate: Rectangle {
+                                                id: desktopCard
+                                                required property int index
+                                                required property var modelData
+                                                readonly property string desktopId: modelData
+                                                readonly property bool isCurrentDesktop: desktopId === virtualDesktopInfo.currentDesktop
+                                                readonly property bool isPreviewing: root.previewDesktopId === desktopId
+                                                readonly property bool isSelected: !root.searching && root.navigationSection === "desktops" && root.selectedDesktopIndex === index
+                                                readonly property bool isDragTarget: root.dragging && root.dragTargetDesktopId === desktopId
+                                                readonly property int previewWindowCount: {
+                                                    root.desktopPreviewRevision;
+                                                    return root.desktopWindowCount(desktopId);
+                                                }
+
+                                                width: root.desktopPreviewWidth
+                                                height: root.desktopPreviewHeight + (Kirigami.Units.gridUnit * 1.8)
+                                                radius: Kirigami.Units.cornerRadius
+
+                                                Component.onCompleted: root.registerDesktopCard(index, desktopCard)
+                                                Component.onDestruction: root.unregisterDesktopCard(index, desktopCard)
+
+                                                color: desktopMouseArea.containsMouse || isDragTarget || isSelected || isPreviewing || isCurrentDesktop
+                                                    ? Qt.rgba(1, 1, 1, 0.08)
+                                                    : "transparent"
+                                                border.width: isDragTarget || isSelected || isPreviewing ? 1.8 : (isCurrentDesktop ? 1.5 : 1)
+                                                border.color: isDragTarget || isSelected || isPreviewing || isCurrentDesktop
+                                                    ? root.selectionBorderColor
+                                                    : root.borderColor
+
+                                                ColumnLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: Kirigami.Units.smallSpacing
+                                                    spacing: Kirigami.Units.smallSpacing
+
+                                                    Item {
+                                                        Layout.fillWidth: true
+                                                        Layout.preferredHeight: root.desktopPreviewHeight
+
+                                                        Rectangle {
+                                                            anchors.fill: parent
+                                                            radius: Kirigami.Units.cornerRadius
+                                                            color: Qt.rgba(1, 1, 1, 0.035)
+                                                            border.color: Qt.rgba(1, 1, 1, isCurrentDesktop ? 0.12 : 0.06)
+                                                        }
+
+                                                        Repeater {
+                                                            model: root.dashboardVisible
+                                                                ? (function() {
+                                                                    root.desktopPreviewRevision;
+                                                                    return root.desktopWindowIndexes(desktopCard.desktopId);
+                                                                })()
+                                                                : []
+
+                                                            delegate: Rectangle {
+                                                                required property int modelData
+                                                                readonly property rect previewRect: {
+                                                                    root.desktopPreviewRevision;
+                                                                    return root.desktopWindowPreviewRect(modelData, parent.width, parent.height);
+                                                                }
+
+                                                                x: previewRect.x
+                                                                y: previewRect.y
+                                                                width: previewRect.width
+                                                                height: previewRect.height
+                                                                radius: Math.min(Kirigami.Units.cornerRadius, height / 3)
+                                                                color: Qt.rgba(1, 1, 1, 0.09)
+                                                                border.width: 1
+                                                                border.color: Qt.rgba(1, 1, 1, 0.12)
+
+                                                                Kirigami.Icon {
+                                                                    anchors.centerIn: parent
+                                                                    width: Math.max(10, Math.min(parent.width - 4, parent.height - 4, Kirigami.Units.iconSizes.small))
+                                                                    height: width
+                                                                    source: root.desktopTaskData(modelData, Qt.DecorationRole)
+                                                                }
+                                                            }
+                                                        }
+
+                                                        PlasmaComponents3.Label {
+                                                            anchors.centerIn: parent
+                                                            visible: desktopCard.previewWindowCount === 0
+                                                            color: root.mutedTextColor
+                                                            text: i18n("Empty")
+                                                            font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.78)
+                                                        }
+                                                    }
+
+                                                    RowLayout {
+                                                        Layout.fillWidth: true
+                                                        spacing: Kirigami.Units.smallSpacing
+
+                                                        PlasmaComponents3.Label {
+                                                            Layout.fillWidth: true
+                                                            color: root.textColor
+                                                            elide: Text.ElideRight
+                                                            font.weight: desktopCard.isSelected || desktopCard.isCurrentDesktop ? Font.DemiBold : Font.Normal
+                                                            text: root.desktopName(desktopCard.desktopId)
+                                                        }
+
+                                                        PlasmaComponents3.Label {
+                                                            color: desktopCard.isCurrentDesktop || desktopCard.isPreviewing || desktopCard.isDragTarget
+                                                                ? root.selectionBorderColor
+                                                                : root.mutedTextColor
+                                                            text: desktopCard.previewWindowCount
+                                                        }
+                                                    }
+                                                }
+
+                                                MouseArea {
+                                                    id: desktopMouseArea
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+
+                                                    onClicked: root.selectDesktop(index, true)
+
+                                                    onDoubleClicked: {
+                                                        root.selectDesktop(index, true);
+                                                        root.triggerSelectedDesktop();
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1892,14 +2392,10 @@ PlasmoidItem {
 
     Window {
         id: dashboardWindow
-        visible: root.dashboardVisible
-        flags: Qt.Dialog | Qt.Tool | Qt.FramelessWindowHint
+        visible: root.dashboardWindowVisible
+        flags: root.fullscreenMode ? (Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint) : (Qt.Window | Qt.FramelessWindowHint)
         color: "transparent"
         title: Plasmoid.title
-        x: root.dashboardX
-        y: root.dashboardY
-        width: root.dashboardWidth
-        height: root.dashboardHeight
 
         onActiveChanged: {
             if (!active && visible && root.suppressAutoCloseOnDragDrop) {
@@ -1919,8 +2415,30 @@ PlasmoidItem {
             }
 
             if (visible) {
+                root.applyDashboardWindowMode();
                 requestActivate();
+                root.startDashboardContentFadeIn();
                 Qt.callLater(root.focusDashboardView);
+            }
+        }
+
+        Timer {
+            id: dashboardHideTimer
+            interval: root.dashboardFadeDuration
+            repeat: false
+            onTriggered: {
+                if (!root.dashboardVisible) {
+                    root.dashboardWindowVisible = false;
+                }
+            }
+        }
+
+        Connections {
+            target: Plasmoid.configuration
+            function onFullscreenModeChanged() {
+                if (dashboardWindow.visible) {
+                    root.applyDashboardWindowPlacement();
+                }
             }
         }
 
@@ -1932,9 +2450,12 @@ PlasmoidItem {
         }
 
         Loader {
+            id: dashboardContentLoader
             anchors.fill: parent
             active: dashboardWindow.visible
             sourceComponent: dashboardContentComponent
+
+            onLoaded: root.startDashboardContentFadeIn()
         }
     }
 
