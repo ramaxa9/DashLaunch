@@ -193,5 +193,11 @@ KCM.SimpleKCM {
                 layoutTypeCombo.currentIndex = 0
             }
         }
+
+        Label {
+            Kirigami.FormData.label: i18n("Version:")
+            text: i18n("v1.2a")
+            color: Kirigami.Theme.disabledTextColor
+        }
     }
 }
