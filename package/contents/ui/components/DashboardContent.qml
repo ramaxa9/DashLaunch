@@ -395,7 +395,7 @@ FocusScope {
                                         currentIndex: root.selectedDesktopIndex
                                         spacing: Kirigami.Units.largeSpacing
                                         orientation: ListView.Horizontal
-                                        model: virtualDesktopInfo.desktopIds
+                                        model: virtualDesktopInfo.desktopIds.length + 1
                                         boundsBehavior: Flickable.StopAtBounds
                                         readonly property real centeredContentWidth: Math.max(0, (count * root.desktopPreviewWidth) + (Math.max(0, count - 1) * spacing))
                                         readonly property real sideMargin: Math.max(0, (width - centeredContentWidth) / 2)
@@ -411,13 +411,19 @@ FocusScope {
                                         delegate: Rectangle {
                                             id: desktopCard
                                             required property int index
-                                            required property var modelData
-                                            readonly property string desktopId: modelData
-                                            readonly property bool isCurrentDesktop: desktopId === virtualDesktopInfo.currentDesktop
-                                            readonly property bool isPreviewing: root.previewDesktopId === desktopId
-                                            readonly property bool isSelected: !root.searching && root.selectedDesktopIndex === index
-                                            readonly property bool isDragTarget: root.dragging && root.dragTargetDesktopId === desktopId
+                                            readonly property bool isCreateTile: index === virtualDesktopInfo.desktopIds.length
+                                            readonly property string desktopId: isCreateTile ? "" : root.desktopIdAt(index)
+                                            readonly property bool isCurrentDesktop: !isCreateTile && desktopId === virtualDesktopInfo.currentDesktop
+                                            readonly property bool isPreviewing: !isCreateTile && root.previewDesktopId === desktopId
+                                            readonly property bool isSelected: !isCreateTile && !root.searching && root.selectedDesktopIndex === index
+                                            readonly property bool isDragTarget: !isCreateTile && root.dragging && root.dragTargetDesktopId === desktopId
+                                            readonly property bool canRemoveDesktop: !isCreateTile && virtualDesktopInfo.desktopIds.length > 1
+                                            readonly property int removalWindowCount: isCreateTile ? 0 : root.desktopTotalWindowCount(desktopId)
                                             readonly property int previewWindowCount: {
+                                                if (isCreateTile) {
+                                                    return 0
+                                                }
+
                                                 root.desktopPreviewRevision
                                                 return root.desktopWindowCount(desktopId)
                                             }
@@ -426,8 +432,16 @@ FocusScope {
                                             height: root.desktopPreviewHeight + (Kirigami.Units.gridUnit * 1.8)
                                             radius: Kirigami.Units.cornerRadius
 
-                                            Component.onCompleted: root.registerDesktopCard(index, desktopCard)
-                                            Component.onDestruction: root.unregisterDesktopCard(index, desktopCard)
+                                            Component.onCompleted: {
+                                                if (!isCreateTile) {
+                                                    root.registerDesktopCard(index, desktopCard)
+                                                }
+                                            }
+                                            Component.onDestruction: {
+                                                if (!isCreateTile) {
+                                                    root.unregisterDesktopCard(index, desktopCard)
+                                                }
+                                            }
 
                                             color: desktopMouseArea.containsMouse || isDragTarget || isSelected || isPreviewing || isCurrentDesktop
                                                 ? Qt.rgba(1, 1, 1, 0.08)
@@ -454,6 +468,7 @@ FocusScope {
                                                     }
 
                                                     Repeater {
+                                                        visible: !desktopCard.isCreateTile
                                                         model: root.dashboardVisible
                                                             ? (function() {
                                                                 root.desktopPreviewRevision
@@ -486,12 +501,73 @@ FocusScope {
                                                         }
                                                     }
 
+                                                    Kirigami.Icon {
+                                                        anchors.centerIn: parent
+                                                        visible: desktopCard.isCreateTile
+                                                        width: Math.round(Kirigami.Units.gridUnit * 2.2)
+                                                        height: width
+                                                        source: "list-add"
+                                                        color: root.textColor
+                                                    }
+
                                                     PlasmaComponents3.Label {
                                                         anchors.centerIn: parent
-                                                        visible: desktopCard.previewWindowCount === 0
+                                                        visible: !desktopCard.isCreateTile && desktopCard.previewWindowCount === 0
                                                         color: root.mutedTextColor
                                                         text: i18n("Empty")
                                                         font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.78)
+                                                    }
+
+                                                    Rectangle {
+                                                        anchors.top: parent.top
+                                                        anchors.right: parent.right
+                                                        anchors.margins: Kirigami.Units.smallSpacing
+                                                        visible: desktopCard.canRemoveDesktop
+                                                        z: 10
+                                                        width: Kirigami.Units.gridUnit * 1.6
+                                                        height: width
+                                                        radius: width / 2
+                                                        color: closeDesktopMouseArea.containsMouse
+                                                            ? Qt.rgba(1, 1, 1, 0.16)
+                                                            : Qt.rgba(1, 1, 1, 0.08)
+                                                        border.width: 1
+                                                        border.color: Qt.rgba(1, 1, 1, 0.12)
+
+                                                        Kirigami.Icon {
+                                                            anchors.centerIn: parent
+                                                            width: Math.round(parent.width * 0.7)
+                                                            height: width
+                                                            source: "window-close"
+                                                            color: root.textColor
+                                                        }
+
+                                                        MouseArea {
+                                                            id: closeDesktopMouseArea
+                                                            anchors.fill: parent
+                                                            hoverEnabled: true
+                                                            acceptedButtons: Qt.LeftButton
+                                                            preventStealing: true
+                                                            propagateComposedEvents: false
+
+                                                            onPressed: mouse.accepted = true
+
+                                                            onClicked: {
+                                                                if (desktopCard.removalWindowCount === 0) {
+                                                                    root.removeDesktop(desktopCard.desktopId, false)
+                                                                    mouse.accepted = true
+                                                                    return
+                                                                }
+
+                                                                mouse.accepted = true
+                                                            }
+
+                                                            onDoubleClicked: {
+                                                                if (desktopCard.removalWindowCount > 0) {
+                                                                    root.removeDesktop(desktopCard.desktopId, true)
+                                                                }
+                                                                mouse.accepted = true
+                                                            }
+                                                        }
                                                     }
                                                 }
 
@@ -504,10 +580,13 @@ FocusScope {
                                                         color: root.textColor
                                                         elide: Text.ElideRight
                                                         font.weight: desktopCard.isSelected || desktopCard.isCurrentDesktop ? Font.DemiBold : Font.Normal
-                                                        text: root.desktopName(desktopCard.desktopId)
+                                                        text: desktopCard.isCreateTile
+                                                            ? i18n("Create desktop")
+                                                            : root.desktopName(desktopCard.desktopId)
                                                     }
 
                                                     PlasmaComponents3.Label {
+                                                        visible: !desktopCard.isCreateTile
                                                         color: desktopCard.isSelected
                                                             ? root.selectionBorderColor
                                                             : root.mutedTextColor
@@ -519,12 +598,24 @@ FocusScope {
                                             MouseArea {
                                                 id: desktopMouseArea
                                                 anchors.fill: parent
+                                                z: -1
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
 
-                                                onClicked: root.selectDesktop(index, true)
+                                                onClicked: {
+                                                    if (desktopCard.isCreateTile) {
+                                                        root.createDesktop()
+                                                        return
+                                                    }
+
+                                                    root.selectDesktop(index, true)
+                                                }
 
                                                 onDoubleClicked: {
+                                                    if (desktopCard.isCreateTile) {
+                                                        return
+                                                    }
+
                                                     root.selectDesktop(index, true)
                                                     root.triggerSelectedDesktop()
                                                 }

@@ -54,6 +54,7 @@ PlasmoidItem {
     property var searchFieldRef: null
     property var screenCardRefs: []
     property var desktopCardRefs: []
+    property string pendingDesktopRemovalId: ""
     property int draggedWindowRow: -1
     property var draggedTaskModelIndex: null
     property string dragTargetDesktopId: ""
@@ -870,6 +871,85 @@ PlasmoidItem {
         return true;
     }
 
+    function createDesktop() {
+        const position = (virtualDesktopInfo.desktopIds || []).length;
+        const name = i18n("Desktop %1", position + 1);
+        const command = "qdbus6 org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.createDesktop " + position + " '" + name.replace(/'/g, "'\\''") + "'";
+        desktopEditor.disconnectSource(command);
+        desktopEditor.connectSource(command);
+    }
+
+    function executeDesktopRemoval(desktopId) {
+        const desktopIds = virtualDesktopInfo.desktopIds || [];
+        if (!desktopId || desktopIds.length <= 1) {
+            return false;
+        }
+
+        const removedIndex = desktopIds.indexOf(desktopId);
+        const command = "qdbus6 org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.removeDesktop " + desktopId;
+        desktopEditor.disconnectSource(command);
+        desktopEditor.connectSource(command);
+
+        if (selectedDesktopIndex >= desktopIds.length - 1 || removedIndex >= 0 && selectedDesktopIndex >= removedIndex) {
+            selectedDesktopIndex = Math.max(0, Math.min(desktopIds.length - 2, selectedDesktopIndex - (selectedDesktopIndex >= removedIndex ? 1 : 0)));
+        }
+
+        return true;
+    }
+
+    function closeAllDesktopWindows(desktopId) {
+        const rows = desktopAllWindowIndexes(desktopId).slice().sort(function(first, second) {
+            return second - first;
+        });
+
+        for (let index = 0; index < rows.length; ++index) {
+            const taskModelIndex = desktopTaskIndex(rows[index]);
+            if (taskModelIndex.valid) {
+                desktopWindowsModel.requestClose(taskModelIndex);
+            }
+        }
+    }
+
+    function finalizePendingDesktopRemoval() {
+        if (!pendingDesktopRemovalId) {
+            return false;
+        }
+
+        if (desktopIndex(pendingDesktopRemovalId) < 0) {
+            pendingDesktopRemovalId = "";
+            return false;
+        }
+
+        if (desktopTotalWindowCount(pendingDesktopRemovalId) > 0) {
+            return false;
+        }
+
+        const desktopId = pendingDesktopRemovalId;
+        pendingDesktopRemovalId = "";
+        return executeDesktopRemoval(desktopId);
+    }
+
+    function removeDesktop(desktopId, closeWindowsFirst) {
+        const desktopIds = virtualDesktopInfo.desktopIds || [];
+        if (!desktopId || desktopIds.length <= 1) {
+            return false;
+        }
+
+        const windowCount = desktopTotalWindowCount(desktopId);
+        if (windowCount <= 0) {
+            pendingDesktopRemovalId = "";
+            return executeDesktopRemoval(desktopId);
+        }
+
+        if (!closeWindowsFirst) {
+            return false;
+        }
+
+        pendingDesktopRemovalId = desktopId;
+        closeAllDesktopWindows(desktopId);
+        return finalizePendingDesktopRemoval();
+    }
+
     function triggerSelectedDesktop() {
         return switchToDesktop(desktopIdAt(selectedDesktopIndex));
     }
@@ -1050,8 +1130,24 @@ PlasmoidItem {
         return indexes;
     }
 
+    function desktopAllWindowIndexes(desktopId) {
+        const indexes = [];
+
+        for (let row = 0; row < desktopWindowsModel.count; ++row) {
+            if (taskBelongsToDesktop(row, desktopId)) {
+                indexes.push(row);
+            }
+        }
+
+        return indexes;
+    }
+
     function desktopWindowCount(desktopId) {
         return desktopWindowIndexes(desktopId).length;
+    }
+
+    function desktopTotalWindowCount(desktopId) {
+        return desktopAllWindowIndexes(desktopId).length;
     }
 
     function desktopWindowPreviewRect(row, previewWidth, previewHeight) {
@@ -1486,11 +1582,13 @@ PlasmoidItem {
 
             root.syncDesktopSelection();
             root.refreshDesktopPreviews();
+            root.finalizePendingDesktopRemoval();
         }
 
         function onDesktopIdsChanged() {
             root.syncDesktopSelection();
             root.refreshDesktopPreviews();
+            root.finalizePendingDesktopRemoval();
         }
     }
 
@@ -1551,6 +1649,18 @@ PlasmoidItem {
 
         onNewData: function(sourceName, data) {
             disconnectSource(sourceName);
+        }
+    }
+
+    Plasma5Support.DataSource {
+        id: desktopEditor
+        engine: "executable"
+        connectedSources: []
+
+        onNewData: function(sourceName, data) {
+            disconnectSource(sourceName);
+            root.syncDesktopSelection();
+            root.refreshDesktopPreviews();
         }
     }
 
@@ -1616,7 +1726,10 @@ PlasmoidItem {
         hideActivatedLaunchers: true
         sortMode: TaskManager.TasksModel.SortLastActivated
 
-        onCountChanged: root.refreshDesktopPreviews()
+        onCountChanged: {
+            root.refreshDesktopPreviews();
+            root.finalizePendingDesktopRemoval();
+        }
     }
 
     Connections {
@@ -1624,18 +1737,22 @@ PlasmoidItem {
 
         function onDataChanged() {
             root.refreshDesktopPreviews();
+            root.finalizePendingDesktopRemoval();
         }
 
         function onModelReset() {
             root.refreshDesktopPreviews();
+            root.finalizePendingDesktopRemoval();
         }
 
         function onRowsInserted() {
             root.refreshDesktopPreviews();
+            root.finalizePendingDesktopRemoval();
         }
 
         function onRowsRemoved() {
             root.refreshDesktopPreviews();
+            root.finalizePendingDesktopRemoval();
         }
     }
 

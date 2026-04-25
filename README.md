@@ -1,7 +1,7 @@
 # Dash Launch
 
 - This is 99.9% AI generated! 
-- This is a Plasma 6 Gnome-like Applications Dashboard
+- This is a Plasma 6 All-in-one Dashboard, you can manage windows/screens/desktops, search and launch applications, all in one place
 
 ![showcase](showcase.gif)
 
