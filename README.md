@@ -2,7 +2,9 @@
 
 - This is 99.9% AI generated! 
 - This is a Plasma 6 Gnome-like Applications Dashboard
+
 ![showcase](showcase.gif)
+
 
 ### Why?
 
@@ -11,18 +13,18 @@ So i like gnome dashboard but i dont like gnome.
 - I not using Plasma Overview because it opens on all screens, and i dont like its layout
 - This is a quick fix to my problem.
 
+
 ### What is implemented
 
-- show opened windows on the current/all screens
-- show opened windows on the current/all virtual desktops
+- show opened windows on the current/all screens(in widget settings)
+- show opened windows on the current/all virtual desktops(in widget settings)
+- applications layouts(in widget settings)
+- fullscreen/or 95% of screen size(in widget settings)
 - application search through KRunner services
-- virtual desktops
+- screens and virtual desktops
+- drag&drop windows to desktop/screen
 - keyboard navigation
 
-## Layout
-
-- `package/metadata.json`: plasmoid metadata
-- `package/contents/ui/main.qml`: dashboard UI and model wiring
 
 ## Install
 
@@ -45,9 +47,3 @@ Upgrade after edits:
 ```bash
 ./install.sh
 ```
-
-## Notes
-
-- The search view uses the `krunner_services` runner, so it focuses on app launching.
-- The open windows panel uses Plasma's task manager model and activates or closes windows directly.
-- The UI is pure QML, so the quickest extension path is editing `package/contents/ui/main.qml`.
