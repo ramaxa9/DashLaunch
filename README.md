@@ -2,7 +2,7 @@
 
 - This is 99.9% AI generated! 
 - This is a Plasma 6 Gnome-like Applications Dashboard
-![showcase](showcase.webm)
+![showcase](showcase.mp4)
 
 ### Why?
 
