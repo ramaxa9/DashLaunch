@@ -14,14 +14,13 @@ So i like gnome dashboard but i dont like gnome.
 - This is a quick fix to my problem.
 
 
-### What is implemented
+### Features
 
-- show opened windows on the current/all screens(in widget settings)
-- show opened windows on the current/all virtual desktops(in widget settings)
+- show opened windows on the current/all screens/virtual desktops(in widget settings)
 - applications layouts(in widget settings)
 - fullscreen/or 95% of screen size(in widget settings)
-- application search through KRunner services
-- screens and virtual desktops
+- application search through KRunner services(type to search)
+- screens and virtual desktops management
 - drag&drop windows to desktop/screen
 - keyboard navigation
 
@@ -37,7 +36,7 @@ git clone https://github.com/ramaxa9/DashLaunch.git
 
 or download and unzip your version https://github.com/ramaxa9/DashLaunch/releases
 
-```
+```bash
 cd DashLaunch
 sh install.sh
 ```
