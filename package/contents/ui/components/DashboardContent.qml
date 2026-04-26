@@ -504,7 +504,7 @@ FocusScope {
                                                     Kirigami.Icon {
                                                         anchors.centerIn: parent
                                                         visible: desktopCard.isCreateTile
-                                                        width: Math.round(Kirigami.Units.gridUnit * 2.2)
+                                                        width: Math.round(Math.min(parent.width, parent.height) * 0.75)
                                                         height: width
                                                         source: "list-add"
                                                         color: root.textColor
