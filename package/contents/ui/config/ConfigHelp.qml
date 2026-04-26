@@ -78,7 +78,7 @@ KCM.SimpleKCM {
         },
         {
             label: i18n("Desktop tile"),
-            single: "",
+            single: i18n("Filter windows"),
             doubleAction: i18n("Activate"),
             middle: ""
         },
@@ -90,7 +90,7 @@ KCM.SimpleKCM {
         },
         {
             label: i18n("Screen tile"),
-            single: "",
+            single: i18n("Filter windows"),
             doubleAction: "",
             middle: ""
         },
@@ -126,6 +126,10 @@ KCM.SimpleKCM {
             arrows: i18n("Navigate"),
             deleteAction: "",
             enter: i18n("Activate")
+        },
+        {
+            label: i18n("App search"),
+            prompt: i18n("Start typing")
         }
     ]
 
@@ -193,7 +197,10 @@ KCM.SimpleKCM {
         { text: keyboardRows[3].label, rowTitle: true, column: 0 },
         { text: displayValue(keyboardRows[3].arrows), column: 1 },
         { text: displayValue(keyboardRows[3].deleteAction), column: 2 },
-        { text: displayValue(keyboardRows[3].enter), column: 3 }
+        { text: displayValue(keyboardRows[3].enter), column: 3 },
+
+        { text: keyboardRows[4].label, rowTitle: true, column: 0 },
+        { text: displayValue(keyboardRows[4].prompt), column: 1, span: 3 }
     ]
 
     Item {
