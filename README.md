@@ -41,6 +41,7 @@ So i like gnome dashboard but i dont like gnome.
  - up/down/left/right - navigate
  - enter - activate
  - delete - close selected window
+ - start typing - search application
 
 ## Install
 
