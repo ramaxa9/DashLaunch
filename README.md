@@ -24,6 +24,23 @@ So i like gnome dashboard but i dont like gnome.
 - drag&drop windows to desktop/screen
 - keyboard navigation
 
+# Controls
+#### Mouse
+ - Single click: 
+ - - window tile - focus window
+ - - screen/desktop tile - filter windows by
+ - - desktop close button - close empty desktop
+
+ - Double click:
+ - - screen/desktop - activate
+ - - desktop close button - force close desktop and all its windows
+
+ - Middle click on window tile - close window
+
+#### Keyboard
+ - up/down/left/right - navigate
+ - enter - activate
+ - delete - close selected window
 
 ## Install
 

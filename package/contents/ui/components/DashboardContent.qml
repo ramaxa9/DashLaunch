@@ -353,7 +353,7 @@ FocusScope {
                                                         Layout.fillWidth: true
                                                         color: root.textColor
                                                         elide: Text.ElideRight
-                                                        font.weight: screenCard.isSelected || screenCard.isCurrentScreen ? Font.DemiBold : Font.Normal
+                                                        font.weight: screenCard.isSelected ? Font.DemiBold : Font.Normal
                                                         text: root.screenLabelAt(index)
                                                     }
 
@@ -579,7 +579,7 @@ FocusScope {
                                                         Layout.fillWidth: true
                                                         color: root.textColor
                                                         elide: Text.ElideRight
-                                                        font.weight: desktopCard.isSelected || desktopCard.isCurrentDesktop ? Font.DemiBold : Font.Normal
+                                                        font.weight: desktopCard.isSelected ? Font.DemiBold : Font.Normal
                                                         text: desktopCard.isCreateTile
                                                             ? i18n("Create desktop")
                                                             : root.desktopName(desktopCard.desktopId)
@@ -705,7 +705,7 @@ FocusScope {
                                             Layout.fillWidth: true
                                             color: root.textColor
                                             elide: Text.ElideRight
-                                            font.weight: Font.DemiBold
+                                            font.weight: root.selectedWindowIndex === index ? Font.DemiBold : Font.Normal
                                             text: root.taskData(index, Qt.DisplayRole) || root.taskAppName(index)
                                         }
                                     }
