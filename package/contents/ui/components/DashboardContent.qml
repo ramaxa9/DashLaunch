@@ -15,6 +15,31 @@ FocusScope {
     required property var windowsModel
     required property var desktopWindowsModel
 
+    component PreviewTile: Rectangle {
+        required property bool hovered
+        required property bool selected
+        required property bool previewing
+        required property bool current
+        required property bool dragTarget
+        default property alias content: contentLayout.data
+
+        radius: Kirigami.Units.cornerRadius
+        color: hovered || dragTarget || selected || previewing || current
+            ? Qt.rgba(1, 1, 1, 0.08)
+            : "transparent"
+        border.width: selected ? 1.8 : 0
+        border.color: selected
+            ? root.selectionBorderColor
+            : "transparent"
+
+        ColumnLayout {
+            id: contentLayout
+            anchors.fill: parent
+            anchors.margins: Kirigami.Units.smallSpacing
+            spacing: Kirigami.Units.smallSpacing
+        }
+    }
+
     anchors.fill: parent
     focus: root.dashboardVisible
     opacity: root.dashboardContentVisible ? 1.0 : 0.0
@@ -286,7 +311,7 @@ FocusScope {
                                     Repeater {
                                         model: root.screenCount()
 
-                                        delegate: Rectangle {
+                                        delegate: PreviewTile {
                                             id: screenCard
                                             required property int index
                                             readonly property string screenName: root.screenNameAt(index)
@@ -301,68 +326,59 @@ FocusScope {
                                                 return root.screenWindowCount(screenName)
                                             }
 
+                                            hovered: screenMouseArea.containsMouse
+                                            selected: isSelected
+                                            previewing: isPreviewing
+                                            current: isCurrentScreen
+                                            dragTarget: isDragTarget
+
                                             x: tileRect.x
                                             y: tileRect.y
                                             width: tileRect.width
                                             height: tileRect.height + Math.round(Kirigami.Units.gridUnit * 1.8)
-                                            radius: Kirigami.Units.cornerRadius
                                             Component.onCompleted: root.registerScreenCard(index, screenCard)
                                             Component.onDestruction: root.unregisterScreenCard(index, screenCard)
 
-                                            color: screenMouseArea.containsMouse || isDragTarget || isSelected || isPreviewing || isCurrentScreen
-                                                ? Qt.rgba(1, 1, 1, 0.08)
-                                                : "transparent"
-                                            border.width: isSelected ? 1.8 : 0
-                                            border.color: isSelected
-                                                ? root.selectionBorderColor
-                                                : "transparent"
+                                            Item {
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: screenCard.tileRect.height
 
-                                            ColumnLayout {
-                                                anchors.fill: parent
-                                                anchors.margins: Kirigami.Units.smallSpacing
-                                                spacing: Kirigami.Units.smallSpacing
-
-                                                Item {
-                                                    Layout.fillWidth: true
-                                                    Layout.preferredHeight: screenCard.tileRect.height
-
-                                                    Rectangle {
-                                                        anchors.fill: parent
-                                                        radius: Kirigami.Units.cornerRadius
-                                                        color: Qt.rgba(1, 1, 1, 0.035)
-                                                        border.color: Qt.rgba(1, 1, 1, screenCard.isCurrentScreen ? 0.12 : 0.06)
-                                                    }
-
-                                                    Kirigami.Icon {
-                                                        anchors.centerIn: parent
-                                                        width: Math.round(Math.min(parent.width, parent.height) * 0.8)
-                                                        height: width
-                                                        source: "monitor"
-                                                        opacity: screenCard.isSelected || screenCard.isPreviewing || screenCard.isCurrentScreen ? 0.9 : 0.75
-                                                        color: screenCard.isSelected || screenCard.isPreviewing || screenCard.isCurrentScreen
-                                                            ? root.selectionBorderColor
-                                                            : root.mutedTextColor
-                                                    }
+                                                Rectangle {
+                                                    anchors.fill: parent
+                                                    radius: Kirigami.Units.cornerRadius
+                                                    color: Qt.rgba(1, 1, 1, 0.035)
+                                                    border.color: Qt.rgba(1, 1, 1, screenCard.isCurrentScreen ? 0.12 : 0.06)
                                                 }
 
-                                                RowLayout {
+                                                Kirigami.Icon {
+                                                    anchors.centerIn: parent
+                                                    width: Math.round(Math.min(parent.width, parent.height) * 0.8)
+                                                    height: width
+                                                    source: "monitor"
+                                                    opacity: screenCard.isSelected || screenCard.isPreviewing || screenCard.isCurrentScreen ? 0.9 : 0.75
+                                                    color: screenCard.isSelected || screenCard.isPreviewing || screenCard.isCurrentScreen
+                                                        ? root.selectionBorderColor
+                                                        : root.mutedTextColor
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: Kirigami.Units.smallSpacing
+
+                                                PlasmaComponents3.Label {
                                                     Layout.fillWidth: true
-                                                    spacing: Kirigami.Units.smallSpacing
+                                                    color: root.textColor
+                                                    elide: Text.ElideRight
+                                                    font.weight: screenCard.isSelected ? Font.DemiBold : Font.Normal
+                                                    text: root.screenLabelAt(index)
+                                                }
 
-                                                    PlasmaComponents3.Label {
-                                                        Layout.fillWidth: true
-                                                        color: root.textColor
-                                                        elide: Text.ElideRight
-                                                        font.weight: screenCard.isSelected ? Font.DemiBold : Font.Normal
-                                                        text: root.screenLabelAt(index)
-                                                    }
-
-                                                    PlasmaComponents3.Label {
-                                                        color: screenCard.isSelected
-                                                            ? root.selectionBorderColor
-                                                            : root.mutedTextColor
-                                                        text: screenCard.previewWindowCount
-                                                    }
+                                                PlasmaComponents3.Label {
+                                                    color: screenCard.isSelected
+                                                        ? root.selectionBorderColor
+                                                        : root.mutedTextColor
+                                                    text: screenCard.previewWindowCount
                                                 }
                                             }
 
@@ -408,7 +424,7 @@ FocusScope {
                                             }
                                         }
 
-                                        delegate: Rectangle {
+                                        delegate: PreviewTile {
                                             id: desktopCard
                                             required property int index
                                             readonly property bool isCreateTile: index === virtualDesktopInfo.desktopIds.length
@@ -428,9 +444,14 @@ FocusScope {
                                                 return root.desktopWindowCount(desktopId)
                                             }
 
+                                            hovered: desktopMouseArea.containsMouse
+                                            selected: isSelected
+                                            previewing: isPreviewing
+                                            current: isCurrentDesktop
+                                            dragTarget: isDragTarget
+
                                             width: root.desktopPreviewWidth
                                             height: root.desktopPreviewHeight + (Kirigami.Units.gridUnit * 1.8)
-                                            radius: Kirigami.Units.cornerRadius
 
                                             Component.onCompleted: {
                                                 if (!isCreateTile) {
@@ -443,155 +464,141 @@ FocusScope {
                                                 }
                                             }
 
-                                            color: desktopMouseArea.containsMouse || isDragTarget || isSelected || isPreviewing || isCurrentDesktop
-                                                ? Qt.rgba(1, 1, 1, 0.08)
-                                                : "transparent"
-                                            border.width: isSelected ? 1.8 : 0
-                                            border.color: isSelected
-                                                ? root.selectionBorderColor
-                                                : "transparent"
+                                            Item {
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: root.desktopPreviewHeight
 
-                                            ColumnLayout {
-                                                anchors.fill: parent
-                                                anchors.margins: Kirigami.Units.smallSpacing
-                                                spacing: Kirigami.Units.smallSpacing
+                                                Rectangle {
+                                                    anchors.fill: parent
+                                                    radius: Kirigami.Units.cornerRadius
+                                                    color: Qt.rgba(1, 1, 1, 0.035)
+                                                    border.color: Qt.rgba(1, 1, 1, isCurrentDesktop ? 0.12 : 0.06)
+                                                }
 
-                                                Item {
-                                                    Layout.fillWidth: true
-                                                    Layout.preferredHeight: root.desktopPreviewHeight
+                                                Repeater {
+                                                    visible: !desktopCard.isCreateTile
+                                                    model: root.dashboardVisible
+                                                        ? (function() {
+                                                            root.desktopPreviewRevision
+                                                            return root.desktopWindowIndexes(desktopCard.desktopId)
+                                                        })()
+                                                        : []
 
-                                                    Rectangle {
-                                                        anchors.fill: parent
-                                                        radius: Kirigami.Units.cornerRadius
-                                                        color: Qt.rgba(1, 1, 1, 0.035)
-                                                        border.color: Qt.rgba(1, 1, 1, isCurrentDesktop ? 0.12 : 0.06)
-                                                    }
-
-                                                    Repeater {
-                                                        visible: !desktopCard.isCreateTile
-                                                        model: root.dashboardVisible
-                                                            ? (function() {
-                                                                root.desktopPreviewRevision
-                                                                return root.desktopWindowIndexes(desktopCard.desktopId)
-                                                            })()
-                                                            : []
-
-                                                        delegate: Rectangle {
-                                                            required property int modelData
-                                                            readonly property rect previewRect: {
-                                                                root.desktopPreviewRevision
-                                                                return root.desktopWindowPreviewRect(modelData, parent.width, parent.height)
-                                                            }
-
-                                                            x: previewRect.x
-                                                            y: previewRect.y
-                                                            width: previewRect.width
-                                                            height: previewRect.height
-                                                            radius: Math.min(Kirigami.Units.cornerRadius, height / 3)
-                                                            color: Qt.rgba(1, 1, 1, 0.09)
-                                                            border.width: 1
-                                                            border.color: Qt.rgba(1, 1, 1, 0.12)
-
-                                                            Kirigami.Icon {
-                                                                anchors.centerIn: parent
-                                                                width: Math.max(10, Math.min(parent.width - 4, parent.height - 4, Kirigami.Units.iconSizes.small))
-                                                                height: width
-                                                                source: root.desktopTaskData(modelData, Qt.DecorationRole)
-                                                            }
+                                                    delegate: Rectangle {
+                                                        required property int modelData
+                                                        readonly property rect previewRect: {
+                                                            root.desktopPreviewRevision
+                                                            return root.desktopWindowPreviewRect(modelData, parent.width, parent.height)
                                                         }
-                                                    }
 
-                                                    Kirigami.Icon {
-                                                        anchors.centerIn: parent
-                                                        visible: desktopCard.isCreateTile
-                                                        width: Math.round(Math.min(parent.width, parent.height) * 0.75)
-                                                        height: width
-                                                        source: "list-add"
-                                                        color: root.textColor
-                                                    }
-
-                                                    PlasmaComponents3.Label {
-                                                        anchors.centerIn: parent
-                                                        visible: !desktopCard.isCreateTile && desktopCard.previewWindowCount === 0
-                                                        color: root.mutedTextColor
-                                                        text: i18n("Empty")
-                                                        font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.78)
-                                                    }
-
-                                                    Rectangle {
-                                                        anchors.top: parent.top
-                                                        anchors.right: parent.right
-                                                        anchors.margins: Kirigami.Units.smallSpacing
-                                                        visible: desktopCard.canRemoveDesktop
-                                                        z: 10
-                                                        width: Kirigami.Units.gridUnit * 1.6
-                                                        height: width
-                                                        radius: width / 2
-                                                        color: closeDesktopMouseArea.containsMouse
-                                                            ? Qt.rgba(1, 1, 1, 0.16)
-                                                            : Qt.rgba(1, 1, 1, 0.08)
+                                                        x: previewRect.x
+                                                        y: previewRect.y
+                                                        width: previewRect.width
+                                                        height: previewRect.height
+                                                        radius: Math.min(Kirigami.Units.cornerRadius, height / 3)
+                                                        color: Qt.rgba(1, 1, 1, 0.09)
                                                         border.width: 1
                                                         border.color: Qt.rgba(1, 1, 1, 0.12)
 
                                                         Kirigami.Icon {
                                                             anchors.centerIn: parent
-                                                            width: Math.round(parent.width * 0.7)
+                                                            width: Math.max(10, Math.min(parent.width - 4, parent.height - 4, Kirigami.Units.iconSizes.small))
                                                             height: width
-                                                            source: "window-close"
-                                                            color: root.textColor
-                                                        }
-
-                                                        MouseArea {
-                                                            id: closeDesktopMouseArea
-                                                            anchors.fill: parent
-                                                            hoverEnabled: true
-                                                            acceptedButtons: Qt.LeftButton
-                                                            preventStealing: true
-                                                            propagateComposedEvents: false
-
-                                                            onPressed: mouse.accepted = true
-
-                                                            onClicked: {
-                                                                if (desktopCard.removalWindowCount === 0) {
-                                                                    root.removeDesktop(desktopCard.desktopId, false)
-                                                                    mouse.accepted = true
-                                                                    return
-                                                                }
-
-                                                                mouse.accepted = true
-                                                            }
-
-                                                            onDoubleClicked: {
-                                                                if (desktopCard.removalWindowCount > 0) {
-                                                                    root.removeDesktop(desktopCard.desktopId, true)
-                                                                }
-                                                                mouse.accepted = true
-                                                            }
+                                                            source: root.desktopTaskData(modelData, Qt.DecorationRole)
                                                         }
                                                     }
                                                 }
 
-                                                RowLayout {
-                                                    Layout.fillWidth: true
-                                                    spacing: Kirigami.Units.smallSpacing
+                                                Kirigami.Icon {
+                                                    anchors.centerIn: parent
+                                                    visible: desktopCard.isCreateTile
+                                                    width: Math.round(Math.min(parent.width, parent.height) * 0.75)
+                                                    height: width
+                                                    source: "list-add"
+                                                    color: root.textColor
+                                                }
 
-                                                    PlasmaComponents3.Label {
-                                                        Layout.fillWidth: true
+                                                PlasmaComponents3.Label {
+                                                    anchors.centerIn: parent
+                                                    visible: !desktopCard.isCreateTile && desktopCard.previewWindowCount === 0
+                                                    color: root.mutedTextColor
+                                                    text: i18n("Empty")
+                                                    font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.78)
+                                                }
+
+                                                Rectangle {
+                                                    anchors.top: parent.top
+                                                    anchors.right: parent.right
+                                                    anchors.margins: Kirigami.Units.smallSpacing
+                                                    visible: desktopCard.canRemoveDesktop
+                                                    z: 10
+                                                    width: Kirigami.Units.gridUnit * 1.6
+                                                    height: width
+                                                    radius: width / 2
+                                                    color: closeDesktopMouseArea.containsMouse
+                                                        ? Qt.rgba(1, 1, 1, 0.16)
+                                                        : Qt.rgba(1, 1, 1, 0.08)
+                                                    border.width: 1
+                                                    border.color: Qt.rgba(1, 1, 1, 0.12)
+
+                                                    Kirigami.Icon {
+                                                        anchors.centerIn: parent
+                                                        width: Math.round(parent.width * 0.7)
+                                                        height: width
+                                                        source: "window-close"
                                                         color: root.textColor
-                                                        elide: Text.ElideRight
-                                                        font.weight: desktopCard.isSelected ? Font.DemiBold : Font.Normal
-                                                        text: desktopCard.isCreateTile
-                                                            ? i18n("Create desktop")
-                                                            : root.desktopName(desktopCard.desktopId)
                                                     }
 
-                                                    PlasmaComponents3.Label {
-                                                        visible: !desktopCard.isCreateTile
-                                                        color: desktopCard.isSelected
-                                                            ? root.selectionBorderColor
-                                                            : root.mutedTextColor
-                                                        text: desktopCard.previewWindowCount
+                                                    MouseArea {
+                                                        id: closeDesktopMouseArea
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        acceptedButtons: Qt.LeftButton
+                                                        preventStealing: true
+                                                        propagateComposedEvents: false
+
+                                                        onPressed: mouse.accepted = true
+
+                                                        onClicked: {
+                                                            if (desktopCard.removalWindowCount === 0) {
+                                                                root.removeDesktop(desktopCard.desktopId, false)
+                                                                mouse.accepted = true
+                                                                return
+                                                            }
+
+                                                            mouse.accepted = true
+                                                        }
+
+                                                        onDoubleClicked: {
+                                                            if (desktopCard.removalWindowCount > 0) {
+                                                                root.removeDesktop(desktopCard.desktopId, true)
+                                                            }
+                                                            mouse.accepted = true
+                                                        }
                                                     }
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: Kirigami.Units.smallSpacing
+
+                                                PlasmaComponents3.Label {
+                                                    Layout.fillWidth: true
+                                                    color: root.textColor
+                                                    elide: Text.ElideRight
+                                                    font.weight: desktopCard.isSelected ? Font.DemiBold : Font.Normal
+                                                    text: desktopCard.isCreateTile
+                                                        ? i18n("Create desktop")
+                                                        : root.desktopName(desktopCard.desktopId)
+                                                }
+
+                                                PlasmaComponents3.Label {
+                                                    visible: !desktopCard.isCreateTile
+                                                    color: desktopCard.isSelected
+                                                        ? root.selectionBorderColor
+                                                        : root.mutedTextColor
+                                                    text: desktopCard.previewWindowCount
                                                 }
                                             }
 

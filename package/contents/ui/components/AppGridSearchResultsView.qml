@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import "SearchResultsUtils.js" as SearchResultsUtils
 
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents3
@@ -26,30 +27,14 @@ Item {
     required property int resultsPadding
     signal resultActivated(int index)
 
-    readonly property bool hasSections: !!(resultsModel && resultsModel.sections && resultsModel.sections.count > 0)
+    readonly property bool hasSections: SearchResultsUtils.hasSections(resultsModel)
     readonly property int responsiveColumns: {
         const count = resultsModel ? resultsModel.count : 0
         const availableWidth = Math.max(1, width - (resultsPadding * 2))
         const maxColumns = Math.max(1, Math.floor(availableWidth / minCellWidth))
         return Math.max(1, Math.min(count > 0 ? count : 1, maxColumns))
     }
-
-    function sectionTitle(sectionIndex) {
-        if (!resultsModel || !resultsModel.sections) {
-            return ""
-        }
-
-        const modelIndex = resultsModel.sections.index(sectionIndex, 0)
-        if (!modelIndex.valid) {
-            return ""
-        }
-
-        return String(resultsModel.sections.data(modelIndex, Qt.DisplayRole) || "")
-    }
-
-    function categoryText(matchModel) {
-        return String((matchModel && matchModel.section) || "")
-    }
+    readonly property bool emptyResults: !resultsModel || resultsModel.count === 0
 
     QQC2.ScrollView {
         anchors.fill: parent
@@ -67,7 +52,7 @@ Item {
 
                 delegate: Item {
                     required property int index
-                    readonly property string title: root.sectionTitle(index)
+                    readonly property string title: SearchResultsUtils.sectionTitle(root.resultsModel, index)
                     readonly property int groupCellWidth: Math.max(root.minCellWidth, Math.min(root.maxCellWidth, Math.floor(width / root.responsiveColumns)))
                     readonly property int groupCellHeight: Math.max(Kirigami.Units.gridUnit * 8, Math.round(groupCellWidth * root.cellAspectRatio))
 
@@ -130,7 +115,7 @@ Item {
                                             color: root.mutedTextColor
                                             elide: Text.ElideRight
                                             font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.78)
-                                            text: root.categoryText(model)
+                                            text: SearchResultsUtils.categoryText(model)
                                             visible: text.length > 0
                                         }
 
@@ -214,7 +199,7 @@ Item {
                     color: root.mutedTextColor
                     elide: Text.ElideRight
                     font.pixelSize: Math.round(Kirigami.Units.gridUnit * 0.78)
-                    text: root.categoryText(model)
+                    text: SearchResultsUtils.categoryText(model)
                     visible: text.length > 0
                 }
 
@@ -244,6 +229,6 @@ Item {
         anchors.centerIn: parent
         color: root.mutedTextColor
         text: i18n("Nothing found")
-        visible: !root.resultsModel || root.resultsModel.count === 0
+        visible: root.emptyResults
     }
 }
