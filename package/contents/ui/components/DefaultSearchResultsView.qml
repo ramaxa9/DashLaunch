@@ -17,6 +17,8 @@ Item {
     required property color mutedTextColor
     required property color surfaceHoverColor
     required property bool searching
+    required property var categoryLabel
+    required property int categoryLookupRevision
     signal resultActivated(int index)
 
     readonly property bool hasSections: SearchResultsUtils.hasSections(resultsModel)
@@ -24,7 +26,8 @@ Item {
     readonly property string emptyResultsText: i18n("Nothing found")
 
     function secondaryText(matchModel) {
-        const category = SearchResultsUtils.categoryText(matchModel)
+        root.categoryLookupRevision
+        const category = SearchResultsUtils.categoryText(matchModel, root.categoryLabel)
         const description = String((matchModel && matchModel.description) || "")
 
         if (category.length > 0 && description.length > 0 && description !== category) {

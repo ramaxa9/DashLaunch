@@ -45,6 +45,7 @@ PlasmoidItem {
     property bool dashboardVisible: false
     property bool dashboardWindowVisible: false
     property bool dashboardContentVisible: false
+    property bool appGridManualActive: false
     property string navigationSection: "windows"
     property var fullViewRef: null
     property var windowsGridRef: null
@@ -69,6 +70,10 @@ PlasmoidItem {
     property string targetMonitorName: Plasmoid.configuration.targetMonitorName || ""
     property string followMouseMonitorName: ""
     property bool pendingFollowMouseOpen: false
+    property var searchResultCategoryCache: ({})
+    property var pendingSearchResultCategoryKeys: ({})
+    property var searchResultCategoryCommands: ({})
+    property int searchResultCategoryRevision: 0
     readonly property int dashboardFadeDuration: 140
 
     readonly property bool dragging: draggedWindowRow >= 0 && draggedTaskModelIndex && draggedTaskModelIndex.valid
@@ -76,6 +81,11 @@ PlasmoidItem {
     readonly property bool filterCurrentMonitor: Plasmoid.configuration.showOnlyCurrentMonitor
     readonly property bool filterCurrentVirtualDesktop: Plasmoid.configuration.showOnlyCurrentVirtualDesktop
     readonly property var searchResultsModel: runnerModel.count > 0 ? runnerModel.modelForRow(0) : null
+    property int appGridAllAppsRow: -1
+    readonly property var appGridAllAppsModel: appGridAllAppsRow >= 0 ? appGridRootModel.modelForRow(appGridAllAppsRow) : null
+    readonly property var appGridResultsModel: appGridSearchActive
+        ? (searching ? searchResultsModel : appGridAllAppsModel)
+        : null
     readonly property int desktopPreviewWidth: 400
     readonly property int desktopPreviewHeight: currentScreenGeometry.width > 0
         ? Math.round(desktopPreviewWidth * currentScreenGeometry.height / currentScreenGeometry.width)
@@ -99,7 +109,7 @@ PlasmoidItem {
     readonly property int windowGridMinCellWidth: Math.max(Kirigami.Units.gridUnit * 12, Math.round(dashboardWidth * 0.15))
     readonly property int windowGridMaxCellWidth: Math.max(windowGridMinCellWidth, Math.round(dashboardWidth * 0.20))
     readonly property int windowGridTargetCellWidth: Math.round((windowGridMinCellWidth + windowGridMaxCellWidth) / 2)
-    readonly property bool appGridSearchActive: appGridLayout && searching
+    readonly property bool appGridSearchActive: appGridLayout && (searching || appGridManualActive)
     readonly property int appGridSearchFieldWidth: Math.round(dashboardWidth * 0.2)
     readonly property int appGridResultsWidth: dashboardWidth
     readonly property int appGridResultsPadding: Math.round(dashboardWidth * 0.02)
@@ -125,6 +135,46 @@ PlasmoidItem {
         selectedSearchIndex = 0;
     }
 
+    function showAppGrid() {
+        if (!appGridLayout) {
+            return;
+        }
+
+        appGridManualActive = true;
+        selectedSearchIndex = 0;
+        Qt.callLater(focusSearchField);
+    }
+
+    function showWindowDesktopView() {
+        appGridManualActive = false;
+        clearSearch();
+        Qt.callLater(focusDashboardView);
+    }
+
+    function toggleDashboardMode() {
+        if (!appGridLayout) {
+            return;
+        }
+
+        if (appGridSearchActive) {
+            showWindowDesktopView();
+        } else {
+            showAppGrid();
+        }
+    }
+
+    function refreshAppGridAllAppsModel() {
+        appGridAllAppsRow = -1;
+
+        for (let row = 0; row < appGridRootModel.count; ++row) {
+            const model = appGridRootModel.modelForRow(row);
+            if (model && model.description === "KICKER_ALL_MODEL") {
+                appGridAllAppsRow = row;
+                return;
+            }
+        }
+    }
+
     function shouldClearSearchOnEscape() {
         return searching && searchText.length > 0;
     }
@@ -132,6 +182,8 @@ PlasmoidItem {
     function handleEscape() {
         if (shouldClearSearchOnEscape()) {
             clearSearch();
+        } else if (appGridSearchActive) {
+            showWindowDesktopView();
         } else {
             closeDashboard();
         }
@@ -173,6 +225,7 @@ PlasmoidItem {
 
         root.dashboardVisible = false;
         root.dashboardContentVisible = false;
+        appGridManualActive = false;
         clearSearch();
         selectedWindowIndex = -1;
         selectedDesktopIndex = -1;
@@ -371,6 +424,193 @@ PlasmoidItem {
 
     function normalizedTaskString(value) {
         return String(value || "").trim().toLowerCase();
+    }
+
+    function normalizedSearchResultString(value) {
+        return String(value || "").trim();
+    }
+
+    function isGenericSearchResultCategory(category) {
+        return category === "Application" || category === "Applications";
+    }
+
+    function searchResultCategoryCacheValue(lookupKey) {
+        if (!lookupKey) {
+            return undefined;
+        }
+
+        return Object.prototype.hasOwnProperty.call(searchResultCategoryCache, lookupKey)
+            ? searchResultCategoryCache[lookupKey]
+            : undefined;
+    }
+
+    function updateSearchResultCategoryCache(lookupKey, category) {
+        const normalizedKey = normalizedSearchResultString(lookupKey);
+        if (!normalizedKey) {
+            return;
+        }
+
+        const updatedCache = Object.assign({}, searchResultCategoryCache);
+        updatedCache[normalizedKey] = normalizedSearchResultString(category);
+        searchResultCategoryCache = updatedCache;
+
+        const updatedPendingKeys = Object.assign({}, pendingSearchResultCategoryKeys);
+        delete updatedPendingKeys[normalizedKey];
+        pendingSearchResultCategoryKeys = updatedPendingKeys;
+
+        searchResultCategoryRevision += 1;
+    }
+
+    function searchResultVariantCandidates(value) {
+        if (value === undefined || value === null) {
+            return [];
+        }
+
+        if (Array.isArray(value)) {
+            return value;
+        }
+
+        const normalizedValue = normalizedSearchResultString(value);
+        return normalizedValue.length > 0 ? [normalizedValue] : [];
+    }
+
+    function normalizedDesktopEntryCandidate(value) {
+        let candidate = normalizedSearchResultString(value);
+        if (!candidate || candidate.indexOf("preferred://") === 0) {
+            return "";
+        }
+
+        if (candidate.indexOf("applications:") === 0) {
+            candidate = candidate.slice("applications:".length);
+        }
+
+        const queryIndex = candidate.indexOf("?");
+        if (queryIndex >= 0) {
+            candidate = candidate.slice(0, queryIndex);
+        }
+
+        const fragmentIndex = candidate.indexOf("#");
+        if (fragmentIndex >= 0) {
+            candidate = candidate.slice(0, fragmentIndex);
+        }
+
+        if (candidate.indexOf("file://") === 0) {
+            return candidate;
+        }
+
+        const desktopIndex = candidate.indexOf(".desktop");
+        if (desktopIndex >= 0) {
+            candidate = candidate.slice(0, desktopIndex + ".desktop".length);
+        }
+
+        const lastSlashIndex = candidate.lastIndexOf("/");
+        if (lastSlashIndex >= 0) {
+            candidate = candidate.slice(lastSlashIndex + 1);
+        }
+
+        return normalizedSearchResultString(candidate);
+    }
+
+    function searchResultLookupKey(matchModel) {
+        if (!matchModel) {
+            return "";
+        }
+
+        const candidates = [];
+        const seenCandidates = {};
+
+        function addCandidate(value) {
+            const normalizedCandidate = normalizedDesktopEntryCandidate(value);
+            if (!normalizedCandidate || seenCandidates[normalizedCandidate]) {
+                return;
+            }
+
+            seenCandidates[normalizedCandidate] = true;
+            candidates.push(normalizedCandidate);
+        }
+
+        const lookupValues = [
+            matchModel.favoriteId,
+            matchModel.storageId,
+            matchModel.desktopEntryName,
+            matchModel.menuId,
+            matchModel.id,
+            matchModel.url,
+            matchModel.urls
+        ];
+
+        for (let index = 0; index < lookupValues.length; ++index) {
+            const variants = searchResultVariantCandidates(lookupValues[index]);
+            for (let variantIndex = 0; variantIndex < variants.length; ++variantIndex) {
+                addCandidate(variants[variantIndex]);
+            }
+        }
+
+        if (candidates.length === 0) {
+            const displayName = normalizedSearchResultString(matchModel.display);
+            if (displayName.length > 0) {
+                candidates.push("name:" + displayName);
+            }
+        }
+
+        return candidates.length > 0 ? candidates[0] : "";
+    }
+
+    function shellQuoted(value) {
+        return "'" + String(value || "").replace(/'/g, "'\\''") + "'";
+    }
+
+    function searchResultCategoryScriptPath() {
+        return String(Qt.resolvedUrl("../code/app-category-lookup.py")).replace(/^file:\/\//, "");
+    }
+
+    function searchResultCategoryCommand(lookupKey) {
+        const scriptPath = searchResultCategoryScriptPath();
+        if (!scriptPath) {
+            return "";
+        }
+
+        return "/usr/bin/python3 " + shellQuoted(scriptPath) + " " + shellQuoted(lookupKey);
+    }
+
+    function requestSearchResultCategory(matchModel) {
+        const lookupKey = searchResultLookupKey(matchModel);
+        if (!lookupKey) {
+            return;
+        }
+
+        if (searchResultCategoryCacheValue(lookupKey) !== undefined
+                || pendingSearchResultCategoryKeys[lookupKey]) {
+            return;
+        }
+
+        const command = searchResultCategoryCommand(lookupKey);
+        if (!command) {
+            return;
+        }
+
+        const updatedPendingKeys = Object.assign({}, pendingSearchResultCategoryKeys);
+        updatedPendingKeys[lookupKey] = true;
+        pendingSearchResultCategoryKeys = updatedPendingKeys;
+
+        const updatedCommands = Object.assign({}, searchResultCategoryCommands);
+        updatedCommands[command] = lookupKey;
+        searchResultCategoryCommands = updatedCommands;
+
+        searchResultLookupRunner.connectSource(command);
+    }
+
+    function searchResultCategoryLabel(matchModel) {
+        const lookupKey = searchResultLookupKey(matchModel);
+        const cachedCategory = searchResultCategoryCacheValue(lookupKey);
+        if (cachedCategory !== undefined) {
+            return cachedCategory;
+        }
+
+        requestSearchResultCategory(matchModel);
+
+        const fallbackCategory = normalizedSearchResultString(matchModel && (matchModel.category || matchModel.section));
+        return isGenericSearchResultCategory(fallbackCategory) ? "" : fallbackCategory;
     }
 
     function isDashboardTask(model, row) {
@@ -705,6 +945,10 @@ PlasmoidItem {
                 return;
             }
 
+            if (root.appGridResultsViewRef && root.appGridResultsViewRef.ensureIndexVisible) {
+                root.appGridResultsViewRef.ensureIndexVisible(targetIndex);
+            }
+
             root.appGridTooltipIndex = targetIndex;
         });
     }
@@ -753,7 +997,29 @@ PlasmoidItem {
         return appGridColumns;
     }
 
+    function moveAppGridSelectionHorizontal(step) {
+        const view = appGridResultsViewRef;
+        if (view && view.nextHorizontalIndex) {
+            const targetIndex = view.nextHorizontalIndex(step);
+            if (targetIndex >= 0) {
+                selectedSearchIndex = targetIndex;
+                return;
+            }
+        }
+
+        moveSearchSelection(step);
+    }
+
     function moveAppGridSelectionVertical(step) {
+        const view = appGridResultsViewRef;
+        if (view && view.nextVerticalIndex) {
+            const targetIndex = view.nextVerticalIndex(step);
+            if (targetIndex >= 0) {
+                selectedSearchIndex = targetIndex;
+                return;
+            }
+        }
+
         const count = searchResultsModel ? searchResultsModel.count : 0;
         if (count <= 0) {
             return;
@@ -953,18 +1219,19 @@ PlasmoidItem {
     }
 
     function triggerSelectedSearchResult() {
-        const count = searchResultsModel ? searchResultsModel.count : 0;
+        const model = appGridSearchActive ? appGridResultsModel : searchResultsModel;
+        const count = model ? model.count : 0;
         if (count <= 0) {
             return false;
         }
 
-        searchResultsModel.trigger(selectedSearchIndex, "", null);
+        model.trigger(selectedSearchIndex, "", null);
         closeDashboard();
         return true;
     }
 
     function triggerPrimaryAction() {
-        if (searching) {
+        if (appGridSearchActive || searching) {
             return triggerSelectedSearchResult();
         }
 
@@ -986,12 +1253,10 @@ PlasmoidItem {
         }
 
         if (event.key === Qt.Key_Up) {
-            if (searching) {
-                if (appGridSearchActive) {
-                    moveAppGridSelectionVertical(-1);
-                } else {
-                    moveSearchSelection(-1);
-                }
+            if (appGridSearchActive) {
+                moveAppGridSelectionVertical(-1);
+            } else if (searching) {
+                moveSearchSelection(-1);
             } else if (navigationSection === "windows") {
                 syncWindowSelection();
                 if (selectedWindowIndex < visibleWindowGridColumns()) {
@@ -1007,12 +1272,10 @@ PlasmoidItem {
         }
 
         if (event.key === Qt.Key_Down) {
-            if (searching) {
-                if (appGridSearchActive) {
-                    moveAppGridSelectionVertical(1);
-                } else {
-                    moveSearchSelection(1);
-                }
+            if (appGridSearchActive) {
+                moveAppGridSelectionVertical(1);
+            } else if (searching) {
+                moveSearchSelection(1);
             } else if (navigationSection === "desktops") {
                 focusWindowSelection();
             } else {
@@ -1022,14 +1285,14 @@ PlasmoidItem {
             return true;
         }
 
-        if (searching && appGridSearchActive && event.key === Qt.Key_Left) {
-            moveSearchSelection(-1);
+        if (appGridSearchActive && event.key === Qt.Key_Left) {
+            moveAppGridSelectionHorizontal(-1);
             event.accepted = true;
             return true;
         }
 
-        if (searching && appGridSearchActive && event.key === Qt.Key_Right) {
-            moveSearchSelection(1);
+        if (appGridSearchActive && event.key === Qt.Key_Right) {
+            moveAppGridSelectionHorizontal(1);
             event.accepted = true;
             return true;
         }
@@ -1569,6 +1832,19 @@ PlasmoidItem {
     Component.onCompleted: updateCurrentScreenGeometry()
 
     Connections {
+        target: appGridRootModel
+        ignoreUnknownSignals: true
+
+        function onRefreshed() {
+            root.refreshAppGridAllAppsModel();
+        }
+
+        function onCountChanged() {
+            root.refreshAppGridAllAppsModel();
+        }
+    }
+
+    Connections {
         target: virtualDesktopInfo
 
         function onCurrentDesktopChanged() {
@@ -1640,6 +1916,23 @@ PlasmoidItem {
         query: root.searchText
     }
 
+    Kicker.RootModel {
+        id: appGridRootModel
+        autoPopulate: false
+        appletInterface: root
+        appNameFormat: 0
+        flat: true
+        sorted: true
+        showSeparators: false
+        showTopLevelItems: true
+        showAllApps: true
+        showAllAppsCategorized: false
+        showRecentApps: false
+        showRecentDocs: false
+
+        Component.onCompleted: refresh()
+    }
+
     Plasma5Support.DataSource {
         id: desktopSwitcher
         engine: "executable"
@@ -1681,6 +1974,27 @@ PlasmoidItem {
         onNewData: function(sourceName, data) {
             disconnectSource(sourceName);
             root.refreshWindowModels();
+        }
+    }
+
+    Plasma5Support.DataSource {
+        id: searchResultLookupRunner
+        engine: "executable"
+        connectedSources: []
+
+        onNewData: function(sourceName, data) {
+            disconnectSource(sourceName);
+
+            const lookupKey = searchResultCategoryCommands[sourceName] || "";
+            if (!lookupKey) {
+                return;
+            }
+
+            const updatedCommands = Object.assign({}, searchResultCategoryCommands);
+            delete updatedCommands[sourceName];
+            searchResultCategoryCommands = updatedCommands;
+
+            updateSearchResultCategoryCache(lookupKey, data.stdout);
         }
     }
 

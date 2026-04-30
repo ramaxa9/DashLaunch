@@ -68,6 +68,45 @@ FocusScope {
         border.color: root.borderColor
     }
 
+    QQC2.ToolButton {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.margins: Kirigami.Units.largeSpacing
+        z: 25
+        visible: root.appGridLayout
+        focusPolicy: Qt.NoFocus
+        icon.name: root.appGridSearchActive ? "view-list-details" : "view-grid"
+        text: root.appGridSearchActive ? i18n("Show Windows") : i18n("Show apps")
+        display: QQC2.AbstractButton.TextBesideIcon
+
+        background: Rectangle {
+            radius: Kirigami.Units.cornerRadius
+            color: parent.down ? Qt.rgba(1, 1, 1, 0.16) : (parent.hovered ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.06))
+            border.color: root.borderColor
+            border.width: 1
+        }
+
+        contentItem: RowLayout {
+            spacing: Kirigami.Units.smallSpacing
+
+            Kirigami.Icon {
+                Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
+                Layout.preferredHeight: width
+                source: viewToggleButton.icon.name
+            }
+
+            PlasmaComponents3.Label {
+                color: root.textColor
+                text: viewToggleButton.text
+            }
+        }
+
+        onClicked: root.toggleDashboardMode()
+
+        Accessible.name: text
+        id: viewToggleButton
+    }
+
     Rectangle {
         z: 20
         visible: root.dragging
@@ -265,6 +304,8 @@ FocusScope {
                         mutedTextColor: root.mutedTextColor
                         surfaceHoverColor: root.surfaceHoverColor
                         searching: root.searching
+                        categoryLabel: root.searchResultCategoryLabel
+                        categoryLookupRevision: root.searchResultCategoryRevision
 
                         onResultActivated: index => {
                             root.selectedSearchIndex = index
@@ -921,7 +962,7 @@ FocusScope {
                     AppGridSearchResultsView {
                         id: appGridSearchResultsView
                         anchors.fill: parent
-                        resultsModel: root.searchResultsModel
+                        resultsModel: root.appGridResultsModel
                         selectedIndex: root.selectedSearchIndex
                         tooltipIndex: root.appGridTooltipIndex
                         textColor: root.textColor
@@ -935,6 +976,8 @@ FocusScope {
                         tileSpacing: root.appGridTileSpacing
                         cellAspectRatio: root.appGridCellAspectRatio
                         resultsPadding: root.appGridResultsPadding
+                        categoryLabel: root.searchResultCategoryLabel
+                        categoryLookupRevision: root.searchResultCategoryRevision
 
                         Component.onCompleted: root.appGridResultsViewRef = appGridSearchResultsView
 
