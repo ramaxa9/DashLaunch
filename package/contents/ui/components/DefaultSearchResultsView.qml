@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import "SearchResultsUtils.js" as SearchResultsUtils
 
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents3
@@ -16,29 +17,17 @@ Item {
     required property color mutedTextColor
     required property color surfaceHoverColor
     required property bool searching
+    required property var categoryLabel
+    required property int categoryLookupRevision
     signal resultActivated(int index)
 
-    readonly property bool hasSections: !!(resultsModel && resultsModel.sections && resultsModel.sections.count > 0)
-
-    function sectionTitle(sectionIndex) {
-        if (!resultsModel || !resultsModel.sections) {
-            return ""
-        }
-
-        const modelIndex = resultsModel.sections.index(sectionIndex, 0)
-        if (!modelIndex.valid) {
-            return ""
-        }
-
-        return String(resultsModel.sections.data(modelIndex, Qt.DisplayRole) || "")
-    }
-
-    function categoryText(matchModel) {
-        return String((matchModel && matchModel.section) || "")
-    }
+    readonly property bool hasSections: SearchResultsUtils.hasSections(resultsModel)
+    readonly property bool emptyResults: !resultsModel || resultsModel.count === 0
+    readonly property string emptyResultsText: i18n("Nothing found")
 
     function secondaryText(matchModel) {
-        const category = categoryText(matchModel)
+        root.categoryLookupRevision
+        const category = SearchResultsUtils.categoryText(matchModel, root.categoryLabel)
         const description = String((matchModel && matchModel.description) || "")
 
         if (category.length > 0 && description.length > 0 && description !== category) {
@@ -71,7 +60,7 @@ Item {
 
                 delegate: Item {
                     required property int index
-                    readonly property string title: root.sectionTitle(index)
+                    readonly property string title: SearchResultsUtils.sectionTitle(root.resultsModel, index)
 
                     visible: title.length > 0
                     width: parent ? parent.width : 0
@@ -149,12 +138,12 @@ Item {
 
             Item {
                 width: parent.width
-                height: root.searching && (!root.resultsModel || root.resultsModel.count === 0) ? Kirigami.Units.gridUnit * 4 : 0
+                height: root.searching && root.emptyResults ? Kirigami.Units.gridUnit * 4 : 0
 
                 PlasmaComponents3.Label {
                     anchors.centerIn: parent
                     color: root.mutedTextColor
-                    text: i18n("Nothing found")
+                    text: root.emptyResultsText
                     visible: parent.height > 0
                 }
             }
@@ -226,12 +215,12 @@ Item {
 
         footer: Item {
             width: ListView.view.width
-            height: root.searching && (!root.resultsModel || root.resultsModel.count === 0) ? Kirigami.Units.gridUnit * 4 : 0
+            height: root.searching && root.emptyResults ? Kirigami.Units.gridUnit * 4 : 0
 
             PlasmaComponents3.Label {
                 anchors.centerIn: parent
                 color: root.mutedTextColor
-                text: i18n("Nothing found")
+                text: root.emptyResultsText
                 visible: parent.height > 0
             }
         }
