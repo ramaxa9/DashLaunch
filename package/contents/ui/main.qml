@@ -68,6 +68,7 @@ PlasmoidItem {
     property bool fullscreenMode: Plasmoid.configuration.enableFullscreen || false
     property string monitorSelectionMode: Plasmoid.configuration.monitorSelectionMode || "widget"
     property string targetMonitorName: Plasmoid.configuration.targetMonitorName || ""
+    readonly property bool usePlasmaSearchPlugins: Plasmoid.configuration.usePlasmaSearchPlugins !== false
     property string followMouseMonitorName: ""
     property bool pendingFollowMouseOpen: false
     property var searchResultCategoryCache: ({})
@@ -1912,7 +1913,7 @@ PlasmoidItem {
     Kicker.RunnerModel {
         id: runnerModel
         mergeResults: true
-        runners: ["krunner_services"]
+        runners: root.usePlasmaSearchPlugins ? [] : ["krunner_services"]
         query: root.searchText
     }
 

@@ -12,6 +12,7 @@ KCM.SimpleKCM {
 
     property string cfg_widgetIcon: ""
     property string cfg_dashboardLayout: "default"
+    property alias cfg_usePlasmaSearchPlugins: usePlasmaSearchPlugins.checked
     property string cfg_monitorSelectionMode: "widget"
     property string cfg_targetMonitorName: ""
     property alias cfg_showOnlyCurrentMonitor: showOnlyCurrentMonitor.checked
@@ -110,6 +111,11 @@ KCM.SimpleKCM {
                     page.cfg_targetMonitorName = page.availableScreenNames[currentIndex]
                 }
             }
+        }
+
+        CheckBox {
+            id: usePlasmaSearchPlugins
+            text: i18n("Use Plasma search plugins")
         }
 
         CheckBox {

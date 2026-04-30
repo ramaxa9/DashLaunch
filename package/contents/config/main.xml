@@ -26,6 +26,10 @@
       <label>Dashboard layout mode.</label>
       <default>default</default>
     </entry>
+    <entry name="usePlasmaSearchPlugins" type="Bool">
+      <label>Use KDE Plasma search plugins through KRunner.</label>
+      <default>true</default>
+    </entry>
     <entry name="enableFullscreen" type="Bool">
       <label>Enable fullscreen mode.</label>
       <default>false</default>
