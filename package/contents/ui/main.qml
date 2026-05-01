@@ -20,7 +20,8 @@ PlasmoidItem {
     readonly property color surfaceColor: Qt.rgba(1, 1, 1, 0.06)
     readonly property color surfaceHoverColor: Qt.rgba(1, 1, 1, 0.11)
     readonly property color borderColor: Qt.rgba(1, 1, 1, 0.08)
-    readonly property color selectionBorderColor: Plasmoid.configuration.cursorBorderColor || "#7dcfff"
+    readonly property color accentColor: Plasmoid.configuration.accentColor || Plasmoid.configuration.cursorBorderColor || "#7dcfff"
+    readonly property color selectionBorderColor: accentColor
     readonly property color textColor: "#f5f2eb"
     readonly property color mutedTextColor: Qt.rgba(0.96, 0.94, 0.9, 0.68)
     readonly property int tilePadding: 12

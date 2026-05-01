@@ -18,8 +18,8 @@
       <label>Show only open windows from the current virtual desktop.</label>
       <default>true</default>
     </entry>
-    <entry name="cursorBorderColor" type="String">
-      <label>Border color used for the selected or hovered tile.</label>
+    <entry name="accentColor" type="String">
+      <label>Accent color used for the selected or hovered tile.</label>
       <default>#7dcfff</default>
     </entry>
     <entry name="dashboardLayout" type="String">

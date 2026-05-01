@@ -192,6 +192,8 @@ Item {
                     readonly property string title: modelData.title
                     readonly property int groupCellWidth: Math.max(root.minCellWidth, Math.min(root.maxCellWidth, Math.floor(width / root.responsiveColumns)))
                     readonly property int groupCellHeight: Math.max(Kirigami.Units.gridUnit * 8, Math.round(groupCellWidth * root.cellAspectRatio))
+                    readonly property int categoryHeaderIconSize: Kirigami.Units.iconSizes.smallMedium * 2
+                    readonly property int categoryHeaderFontPixelSize: Math.max(Kirigami.Theme.defaultFont.pixelSize, Kirigami.Units.gridUnit) * 1.25
 
                     visible: title.length > 0
                     width: parent ? parent.width : 0
@@ -207,15 +209,16 @@ Item {
                             spacing: Kirigami.Units.smallSpacing
 
                             Kirigami.Icon {
-                                Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
+                                Layout.preferredWidth: categoryHeaderIconSize
                                 Layout.preferredHeight: width
                                 source: SearchResultsUtils.categoryIconName(title)
                             }
 
                             PlasmaComponents3.Label {
                                 Layout.fillWidth: true
-                                color: root.textColor
+                                color: "#949494"
                                 font.weight: Font.DemiBold
+                                font.pixelSize: categoryHeaderFontPixelSize
                                 text: title
                             }
                         }
@@ -261,8 +264,9 @@ Item {
                                         PlasmaComponents3.Label {
                                             Layout.fillWidth: true
                                             horizontalAlignment: Text.AlignHCenter
-                                            color: root.textColor
+                                            color: root.selectedIndex === itemData.index ? root.selectionBorderColor : root.textColor
                                             elide: Text.ElideRight
+                                            font.weight: root.selectedIndex === itemData.index ? Font.Bold : Font.Normal
                                             text: itemData.display
                                         }
                                     }

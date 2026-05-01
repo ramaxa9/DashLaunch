@@ -17,7 +17,7 @@ KCM.SimpleKCM {
     property string cfg_targetMonitorName: ""
     property alias cfg_showOnlyCurrentMonitor: showOnlyCurrentMonitor.checked
     property alias cfg_showOnlyCurrentVirtualDesktop: showOnlyCurrentVirtualDesktop.checked
-    property alias cfg_cursorBorderColor: cursorBorderColorField.text
+    property alias cfg_accentColor: accentColorField.text
     property alias cfg_enableFullscreen: enableFullscreen.checked
     readonly property var availableScreenNames: {
         const screens = Qt.application.screens || [];
@@ -53,9 +53,9 @@ KCM.SimpleKCM {
 
     ColorDialog {
         id: colorDialog
-        selectedColor: page.cfg_cursorBorderColor || "#7dcfff"
+        selectedColor: page.cfg_accentColor || "#7dcfff"
 
-        onAccepted: page.cfg_cursorBorderColor = selectedColor.toString()
+        onAccepted: page.cfg_accentColor = selectedColor.toString()
     }
 
     Kirigami.FormLayout {
@@ -163,20 +163,20 @@ KCM.SimpleKCM {
         }
 
         RowLayout {
-            Kirigami.FormData.label: i18n("Cursor border color:")
+            Kirigami.FormData.label: i18n("Accent color:")
             spacing: Kirigami.Units.smallSpacing
 
             Rectangle {
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 1.8
                 Layout.preferredHeight: Layout.preferredWidth
                 radius: Kirigami.Units.cornerRadius
-                color: page.cfg_cursorBorderColor || "#7dcfff"
+                color: page.cfg_accentColor || "#7dcfff"
                 border.color: Kirigami.Theme.textColor
                 border.width: 1
             }
 
             TextField {
-                id: cursorBorderColorField
+                id: accentColorField
                 Layout.fillWidth: true
                 placeholderText: "#7dcfff"
             }
@@ -188,7 +188,7 @@ KCM.SimpleKCM {
 
             Button {
                 text: i18n("Reset")
-                onClicked: page.cfg_cursorBorderColor = "#7dcfff"
+                onClicked: page.cfg_accentColor = "#7dcfff"
             }
         }
 

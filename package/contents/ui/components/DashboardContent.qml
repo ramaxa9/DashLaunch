@@ -409,9 +409,11 @@ FocusScope {
 
                                                 PlasmaComponents3.Label {
                                                     Layout.fillWidth: true
-                                                    color: root.textColor
+                                                    color: screenCard.isSelected
+                                                        ? root.selectionBorderColor
+                                                        : root.textColor
                                                     elide: Text.ElideRight
-                                                    font.weight: screenCard.isSelected ? Font.DemiBold : Font.Normal
+                                                    font.weight: screenCard.isSelected ? Font.Bold : Font.Normal
                                                     text: root.screenLabelAt(index)
                                                 }
 
@@ -626,9 +628,11 @@ FocusScope {
 
                                                 PlasmaComponents3.Label {
                                                     Layout.fillWidth: true
-                                                    color: root.textColor
+                                                    color: desktopCard.isSelected
+                                                        ? root.selectionBorderColor
+                                                        : root.textColor
                                                     elide: Text.ElideRight
-                                                    font.weight: desktopCard.isSelected ? Font.DemiBold : Font.Normal
+                                                    font.weight: desktopCard.isSelected ? Font.Bold : Font.Normal
                                                     text: desktopCard.isCreateTile
                                                         ? i18n("Create desktop")
                                                         : root.desktopName(desktopCard.desktopId)
@@ -751,9 +755,11 @@ FocusScope {
 
                                         PlasmaComponents3.Label {
                                             Layout.fillWidth: true
-                                            color: root.textColor
+                                            color: root.selectedWindowIndex === index
+                                                ? root.selectionBorderColor
+                                                : root.textColor
                                             elide: Text.ElideRight
-                                            font.weight: root.selectedWindowIndex === index ? Font.DemiBold : Font.Normal
+                                            font.weight: root.selectedWindowIndex === index ? Font.Bold : Font.Normal
                                             text: root.taskData(index, Qt.DisplayRole) || root.taskAppName(index)
                                         }
                                     }
