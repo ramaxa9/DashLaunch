@@ -58,145 +58,160 @@ KCM.SimpleKCM {
         onAccepted: page.cfg_accentColor = selectedColor.toString()
     }
 
-    Kirigami.FormLayout {
-        ComboBox {
-            id: layoutTypeCombo
-            Kirigami.FormData.label: i18n("Search layout:")
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: Kirigami.Units.largeSpacing
+
+        Kirigami.Heading {
             Layout.fillWidth: true
-            model: [i18n("Sidebar search"), i18n("App grid")]
-
-            Component.onCompleted: currentIndex = page.cfg_dashboardLayout === "app-grid" ? 1 : 0
-
-            onActivated: page.cfg_dashboardLayout = currentIndex === 1 ? "app-grid" : "sidebar-search"
+            level: 2
+            text: i18n("Look & Feel")
         }
 
-        ComboBox {
-            id: monitorModeCombo
-            Kirigami.FormData.label: i18n("Open on monitor:")
+        Kirigami.FormLayout {
             Layout.fillWidth: true
-            model: [i18n("Widget monitor"), i18n("Follow mouse"), i18n("Specific monitor")]
 
-            Component.onCompleted: currentIndex = page.monitorModeIndex()
+            CheckBox {
+                id: enableFullscreen
+                text: i18n("Enable fullscreen mode")
+            }
 
-            onActivated: {
-                page.cfg_monitorSelectionMode = currentIndex === 1 ? "follow-mouse"
-                    : currentIndex === 2 ? "specific"
-                    : "widget"
+            RowLayout {
+                Kirigami.FormData.label: i18n("Widget icon:")
+                spacing: Kirigami.Units.smallSpacing
 
-                if (page.cfg_monitorSelectionMode === "specific"
-                    && !page.cfg_targetMonitorName
-                    && page.availableScreenNames.length > 0) {
-                    page.cfg_targetMonitorName = page.availableScreenNames[0]
+                Button {
+                    id: iconButton
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 2.5
+                    Layout.preferredHeight: Layout.preferredWidth
+                    onClicked: iconDialog.open()
+
+                    Kirigami.Icon {
+                        anchors.centerIn: parent
+                        width: Kirigami.Units.iconSizes.large
+                        height: width
+                        source: page.cfg_widgetIcon || "view-grid"
+                    }
+                }
+
+                Button {
+                    text: i18n("Choose…")
+                    onClicked: iconDialog.open()
+                }
+
+                Button {
+                    text: i18n("Reset")
+                    onClicked: page.cfg_widgetIcon = "view-grid"
+                }
+            }
+
+            RowLayout {
+                Kirigami.FormData.label: i18n("Accent color:")
+                spacing: Kirigami.Units.smallSpacing
+
+                Rectangle {
+                    Layout.preferredWidth: Kirigami.Units.gridUnit * 1.8
+                    Layout.preferredHeight: Layout.preferredWidth
+                    radius: Kirigami.Units.cornerRadius
+                    color: page.cfg_accentColor || "#7dcfff"
+                    border.color: Kirigami.Theme.textColor
+                    border.width: 1
+                }
+
+                TextField {
+                    id: accentColorField
+                    Layout.fillWidth: true
+                    placeholderText: "#7dcfff"
+                }
+
+                Button {
+                    text: i18n("Choose…")
+                    onClicked: colorDialog.open()
+                }
+
+                Button {
+                    text: i18n("Reset")
+                    onClicked: page.cfg_accentColor = "#7dcfff"
                 }
             }
         }
 
-        ComboBox {
-            id: targetMonitorCombo
-            Kirigami.FormData.label: i18n("Specific monitor:")
+        Kirigami.Heading {
             Layout.fillWidth: true
-            visible: page.cfg_monitorSelectionMode === "specific"
-            model: page.availableScreenNames
-
-            Component.onCompleted: currentIndex = Math.max(0, page.targetMonitorIndex())
-
-            onVisibleChanged: {
-                if (visible) {
-                    currentIndex = Math.max(0, page.targetMonitorIndex())
-                }
-            }
-
-            onActivated: {
-                if (currentIndex >= 0 && currentIndex < page.availableScreenNames.length) {
-                    page.cfg_targetMonitorName = page.availableScreenNames[currentIndex]
-                }
-            }
+            level: 2
+            text: i18n("Dashboard layout")
         }
 
-        CheckBox {
-            id: usePlasmaSearchPlugins
-            text: i18n("Use Plasma search plugins")
-        }
+        Kirigami.FormLayout {
+            Layout.fillWidth: true
 
-        CheckBox {
-            id: showOnlyCurrentMonitor
-            text: i18n("Show only open windows from the current monitor")
-        }
-
-        CheckBox {
-            id: showOnlyCurrentVirtualDesktop
-            text: i18n("Show only open windows from the current virtual desktop")
-        }
-
-        CheckBox {
-            id: enableFullscreen
-            text: i18n("Enable fullscreen mode")
-        }
-
-        RowLayout {
-            Kirigami.FormData.label: i18n("Widget icon:")
-            spacing: Kirigami.Units.smallSpacing
-
-            Button {
-                id: iconButton
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 2.5
-                Layout.preferredHeight: Layout.preferredWidth
-                onClicked: iconDialog.open()
-
-                Kirigami.Icon {
-                    anchors.centerIn: parent
-                    width: Kirigami.Units.iconSizes.large
-                    height: width
-                    source: page.cfg_widgetIcon || "view-grid"
-                }
-            }
-
-            Button {
-                text: i18n("Choose…")
-                onClicked: iconDialog.open()
-            }
-
-            Button {
-                text: i18n("Reset")
-                onClicked: page.cfg_widgetIcon = "view-grid"
-            }
-        }
-
-        RowLayout {
-            Kirigami.FormData.label: i18n("Accent color:")
-            spacing: Kirigami.Units.smallSpacing
-
-            Rectangle {
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 1.8
-                Layout.preferredHeight: Layout.preferredWidth
-                radius: Kirigami.Units.cornerRadius
-                color: page.cfg_accentColor || "#7dcfff"
-                border.color: Kirigami.Theme.textColor
-                border.width: 1
-            }
-
-            TextField {
-                id: accentColorField
+            ComboBox {
+                id: layoutTypeCombo
+                Kirigami.FormData.label: i18n("Search layout:")
                 Layout.fillWidth: true
-                placeholderText: "#7dcfff"
+                model: [i18n("Sidebar search"), i18n("App grid")]
+
+                Component.onCompleted: currentIndex = page.cfg_dashboardLayout === "app-grid" ? 1 : 0
+
+                onActivated: page.cfg_dashboardLayout = currentIndex === 1 ? "app-grid" : "sidebar-search"
             }
 
-            Button {
-                text: i18n("Choose…")
-                onClicked: colorDialog.open()
+            ComboBox {
+                id: monitorModeCombo
+                Kirigami.FormData.label: i18n("Open on monitor:")
+                Layout.fillWidth: true
+                model: [i18n("Widget monitor"), i18n("Follow mouse"), i18n("Specific monitor")]
+
+                Component.onCompleted: currentIndex = page.monitorModeIndex()
+
+                onActivated: {
+                    page.cfg_monitorSelectionMode = currentIndex === 1 ? "follow-mouse"
+                        : currentIndex === 2 ? "specific"
+                        : "widget"
+
+                    if (page.cfg_monitorSelectionMode === "specific"
+                        && !page.cfg_targetMonitorName
+                        && page.availableScreenNames.length > 0) {
+                        page.cfg_targetMonitorName = page.availableScreenNames[0]
+                    }
+                }
             }
 
-            Button {
-                text: i18n("Reset")
-                onClicked: page.cfg_accentColor = "#7dcfff"
-            }
-        }
+            ComboBox {
+                id: targetMonitorCombo
+                Kirigami.FormData.label: i18n("Specific monitor:")
+                Layout.fillWidth: true
+                visible: page.cfg_monitorSelectionMode === "specific"
+                model: page.availableScreenNames
 
-        Button {
-            text: i18n("Reset layout")
-            onClicked: {
-                page.cfg_dashboardLayout = "sidebar-search"
-                layoutTypeCombo.currentIndex = 0
+                Component.onCompleted: currentIndex = Math.max(0, page.targetMonitorIndex())
+
+                onVisibleChanged: {
+                    if (visible) {
+                        currentIndex = Math.max(0, page.targetMonitorIndex())
+                    }
+                }
+
+                onActivated: {
+                    if (currentIndex >= 0 && currentIndex < page.availableScreenNames.length) {
+                        page.cfg_targetMonitorName = page.availableScreenNames[currentIndex]
+                    }
+                }
+            }
+
+            CheckBox {
+                id: usePlasmaSearchPlugins
+                text: i18n("Use Plasma search plugins")
+            }
+
+            CheckBox {
+                id: showOnlyCurrentMonitor
+                text: i18n("Show only open windows from the current monitor")
+            }
+
+            CheckBox {
+                id: showOnlyCurrentVirtualDesktop
+                text: i18n("Show only open windows from the current virtual desktop")
             }
         }
     }
