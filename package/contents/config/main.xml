@@ -26,6 +26,14 @@
       <label>Dashboard layout mode.</label>
       <default>sidebar-search</default>
     </entry>
+    <entry name="monitorSelectionMode" type="String">
+      <label>How the dashboard chooses which monitor to open on.</label>
+      <default>widget</default>
+    </entry>
+    <entry name="targetMonitorName" type="String">
+      <label>Name of the selected target monitor when using a specific monitor.</label>
+      <default></default>
+    </entry>
     <entry name="usePlasmaSearchPlugins" type="Bool">
       <label>Use KDE Plasma search plugins through KRunner.</label>
       <default>true</default>
