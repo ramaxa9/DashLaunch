@@ -295,7 +295,7 @@ FocusScope {
                         }
                     }
 
-                    DefaultSearchResultsView {
+                    SidebarSearchResultsView {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         resultsModel: root.searchResultsModel

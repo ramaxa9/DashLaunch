@@ -24,7 +24,7 @@
     </entry>
     <entry name="dashboardLayout" type="String">
       <label>Dashboard layout mode.</label>
-      <default>default</default>
+      <default>sidebar-search</default>
     </entry>
     <entry name="usePlasmaSearchPlugins" type="Bool">
       <label>Use KDE Plasma search plugins through KRunner.</label>

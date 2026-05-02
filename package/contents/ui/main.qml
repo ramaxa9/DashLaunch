@@ -25,7 +25,7 @@ PlasmoidItem {
     readonly property color textColor: "#f5f2eb"
     readonly property color mutedTextColor: Qt.rgba(0.96, 0.94, 0.9, 0.68)
     readonly property int tilePadding: 12
-    readonly property string dashboardLayout: Plasmoid.configuration.dashboardLayout || "default"
+    readonly property string dashboardLayout: Plasmoid.configuration.dashboardLayout || "sidebar-search"
     readonly property bool appGridLayout: dashboardLayout === "app-grid"
 
     property string searchText: ""

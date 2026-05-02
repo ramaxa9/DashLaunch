@@ -11,7 +11,7 @@ KCM.SimpleKCM {
     id: page
 
     property string cfg_widgetIcon: ""
-    property string cfg_dashboardLayout: "default"
+    property string cfg_dashboardLayout: "sidebar-search"
     property alias cfg_usePlasmaSearchPlugins: usePlasmaSearchPlugins.checked
     property string cfg_monitorSelectionMode: "widget"
     property string cfg_targetMonitorName: ""
@@ -63,11 +63,11 @@ KCM.SimpleKCM {
             id: layoutTypeCombo
             Kirigami.FormData.label: i18n("Search layout:")
             Layout.fillWidth: true
-            model: [i18n("Default"), i18n("App grid")]
+            model: [i18n("Sidebar search"), i18n("App grid")]
 
             Component.onCompleted: currentIndex = page.cfg_dashboardLayout === "app-grid" ? 1 : 0
 
-            onActivated: page.cfg_dashboardLayout = currentIndex === 1 ? "app-grid" : "default"
+            onActivated: page.cfg_dashboardLayout = currentIndex === 1 ? "app-grid" : "sidebar-search"
         }
 
         ComboBox {
@@ -195,7 +195,7 @@ KCM.SimpleKCM {
         Button {
             text: i18n("Reset layout")
             onClicked: {
-                page.cfg_dashboardLayout = "default"
+                page.cfg_dashboardLayout = "sidebar-search"
                 layoutTypeCombo.currentIndex = 0
             }
         }
