@@ -38,10 +38,12 @@ So i like gnome dashboard but i dont like gnome.
  - Middle click on window tile - close window
 
 #### Keyboard
- - up/down/left/right - navigate
- - enter - activate
- - delete - close selected window
- - start typing - search application
+ - Up/down/left/right - navigate
+ - Enter - activate
+ - Delete - close selected window
+ - Start typing - search application
+ - Ctrl+Arrows  - select screen
+ - Alt+Arrows - select desktop
 
 ## Install
 
