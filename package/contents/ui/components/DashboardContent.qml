@@ -601,6 +601,7 @@ FocusScope {
                         id: searchField
                         Layout.preferredWidth: root.appGridSearchFieldWidth
                         Layout.maximumWidth: root.appGridSearchFieldWidth
+                        Keys.priority: Keys.BeforeItem
                         text: root.searchText
                         color: root.textColor
                         placeholderText: i18n("Search applications")
