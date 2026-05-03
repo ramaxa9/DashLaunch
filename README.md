@@ -2,6 +2,7 @@
 
 - This is 99.9% AI generated! 
 - This is a Plasma 6 All-in-one Dashboard, you can manage windows/screens/desktops, search and launch applications, all in one place
+- If someone knows QML and is willing to create a real one, be my guest. Just give me a link and i will archive this one
 
 ![showcase](showcase.gif)
 
