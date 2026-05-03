@@ -836,11 +836,19 @@ PlasmoidItem {
     function toggleDashboard() {
         selectedScreenIndex = -1;
         if (dashboardVisible) {
-        screenPreviewPinned = false;
+            screenPreviewPinned = false;
             closeDashboard();
         } else {
             openDashboard();
         }
+    }
+
+    function clampIndex(index, count) {
+        if (count <= 0) {
+            return -1;
+        }
+
+        return Math.max(0, Math.min(count - 1, index));
     }
 
     function syncDesktopSelection(forceCurrent) {
@@ -858,7 +866,7 @@ PlasmoidItem {
         const currentIndex = desktopIds.indexOf(currentDesktop);
 
         if (forceCurrent || selectedDesktopIndex < 0 || selectedDesktopIndex >= desktopIds.length) {
-            selectedDesktopIndex = Math.max(0, currentIndex);
+            selectedDesktopIndex = clampIndex(currentIndex, desktopIds.length);
         }
     }
 
@@ -871,7 +879,7 @@ PlasmoidItem {
         }
 
         if (forceCurrent || selectedScreenIndex < 0 || selectedScreenIndex >= count) {
-            selectedScreenIndex = Math.max(0, currentDashboardScreenIndex());
+            selectedScreenIndex = clampIndex(currentDashboardScreenIndex(), count);
         }
     }
 
@@ -883,7 +891,7 @@ PlasmoidItem {
         }
 
         if (selectedWindowIndex < 0 || selectedWindowIndex >= count) {
-            selectedWindowIndex = 0;
+            selectedWindowIndex = clampIndex(0, count);
         }
     }
 
@@ -996,7 +1004,7 @@ PlasmoidItem {
             }
         }
 
-        selectedSearchIndex = Math.max(0, Math.min(count - 1, selectedSearchIndex + step));
+        selectedSearchIndex = clampIndex(selectedSearchIndex + step, count);
     }
 
     function visibleAppGridColumns() {
@@ -1053,7 +1061,7 @@ PlasmoidItem {
         }
 
         syncWindowSelection();
-        selectedWindowIndex = Math.max(0, Math.min(count - 1, selectedWindowIndex + step));
+        selectedWindowIndex = clampIndex(selectedWindowIndex + step, count);
     }
 
     function moveWindowSelectionVertical(step) {
@@ -1069,7 +1077,7 @@ PlasmoidItem {
         const currentRow = Math.floor(selectedWindowIndex / columns);
         const targetRow = Math.max(0, currentRow + step);
         const targetIndex = (targetRow * columns) + currentColumn;
-        selectedWindowIndex = Math.max(0, Math.min(count - 1, targetIndex));
+        selectedWindowIndex = clampIndex(targetIndex, count);
     }
 
     function moveDesktopSelection(step) {
@@ -1081,7 +1089,7 @@ PlasmoidItem {
         syncDesktopSelection();
         navigationSection = "desktops";
         desktopPreviewPinned = true;
-        selectedDesktopIndex = Math.max(0, Math.min(desktopIds.length - 1, selectedDesktopIndex + step));
+        selectedDesktopIndex = clampIndex(selectedDesktopIndex + step, desktopIds.length);
     }
 
     function orderedScreenIndexes(axis) {
@@ -1127,25 +1135,11 @@ PlasmoidItem {
 
         syncScreenSelection();
         const orderedIndexes = orderedScreenIndexes(axis === "vertical" ? "vertical" : "horizontal");
-        const currentPosition = Math.max(0, orderedIndexes.indexOf(selectedScreenIndex));
-        const targetPosition = Math.max(0, Math.min(orderedIndexes.length - 1, currentPosition + step));
+        const currentPosition = clampIndex(orderedIndexes.indexOf(selectedScreenIndex), orderedIndexes.length);
+        const targetPosition = clampIndex(currentPosition + step, orderedIndexes.length);
         screenPreviewPinned = true;
         selectedScreenIndex = orderedIndexes[targetPosition];
         refreshWindowModels();
-    }
-
-    function focusDesktopSelection() {
-        syncDesktopSelection();
-        if (selectedDesktopIndex >= 0) {
-            navigationSection = "desktops";
-        }
-    }
-
-    function focusWindowSelection() {
-        syncWindowSelection();
-        if (selectedWindowIndex >= 0) {
-            navigationSection = "windows";
-        }
     }
 
     function activateWindow(row) {
@@ -1176,7 +1170,7 @@ PlasmoidItem {
             return;
         }
 
-        selectedWindowIndex = Math.max(0, Math.min(count - 2, row));
+        selectedWindowIndex = clampIndex(row, count - 1);
     }
 
     function switchToDesktop(desktopId) {

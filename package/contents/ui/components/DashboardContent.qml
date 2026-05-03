@@ -14,6 +14,12 @@ FocusScope {
     required property var virtualDesktopInfo
     required property var windowsModel
     required property var desktopWindowsModel
+    readonly property int controlVerticalPadding: Kirigami.Units.smallSpacing * 1.5
+    readonly property int controlHorizontalPadding: Kirigami.Units.largeSpacing
+    readonly property int toggleHorizontalPadding: 10
+    readonly property color controlFillColor: Qt.rgba(1, 1, 1, 0.04)
+    readonly property color controlHoverColor: Qt.rgba(1, 1, 1, 0.10)
+    readonly property color controlPressedColor: Qt.rgba(1, 1, 1, 0.16)
 
     component PreviewTile: Rectangle {
         required property bool hovered
@@ -559,14 +565,14 @@ FocusScope {
                         icon.name: root.appGridSearchActive ? "view-list-details" : "view-grid"
                         text: root.appGridSearchActive ? i18n("Show Windows") : i18n("Show apps")
                         display: QQC2.AbstractButton.TextBesideIcon
-                        leftPadding: 10
-                        rightPadding: 10
-                        topPadding: Kirigami.Units.smallSpacing * 1.5
-                        bottomPadding: Kirigami.Units.smallSpacing * 1.5
+                        leftPadding: view.toggleHorizontalPadding
+                        rightPadding: view.toggleHorizontalPadding
+                        topPadding: view.controlVerticalPadding
+                        bottomPadding: view.controlVerticalPadding
 
                         background: Rectangle {
                             radius: Kirigami.Units.cornerRadius
-                            color: parent.down ? Qt.rgba(1, 1, 1, 0.16) : (parent.hovered ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.06))
+                            color: parent.down ? view.controlPressedColor : (parent.hovered ? view.controlHoverColor : view.controlFillColor)
                             border.color: parent.hovered ? root.selectionBorderColor : "transparent"
                             border.width: parent.hovered ? 1 : 0
                         }
@@ -614,15 +620,15 @@ FocusScope {
 
                         background: Rectangle {
                             radius: Kirigami.Units.cornerRadius
-                            color: Qt.rgba(1, 1, 1, 0.04)
+                            color: view.controlFillColor
                             border.color: searchField.activeFocus ? root.selectionBorderColor : root.borderColor
                             border.width: 1
                         }
 
-                        leftPadding: Kirigami.Units.largeSpacing
-                        rightPadding: Kirigami.Units.largeSpacing
-                        topPadding: Kirigami.Units.smallSpacing * 1.5
-                        bottomPadding: Kirigami.Units.smallSpacing * 1.5
+                        leftPadding: view.controlHorizontalPadding
+                        rightPadding: view.controlHorizontalPadding
+                        topPadding: view.controlVerticalPadding
+                        bottomPadding: view.controlVerticalPadding
 
                         Keys.onPressed: event => {
                             root.handleNavigationKey(event)
