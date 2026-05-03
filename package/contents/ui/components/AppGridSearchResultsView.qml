@@ -25,6 +25,7 @@ Item {
     required property int tileSpacing
     required property real cellAspectRatio
     required property int resultsPadding
+    required property string contentAlignment
     required property var categoryLabel
     required property int categoryLookupRevision
     signal resultActivated(int index)
@@ -36,6 +37,7 @@ Item {
         return Math.max(1, Math.min(count > 0 ? count : 1, maxColumns))
     }
     readonly property bool emptyResults: !resultsModel || resultsModel.count === 0
+    readonly property bool alignLeft: contentAlignment === "left"
     readonly property var groupedResults: {
         root.categoryLookupRevision
         return SearchResultsUtils.groupedResults(root.resultsModel, root.categoryLabel, i18n("Other"))
@@ -192,8 +194,12 @@ Item {
                     readonly property string title: modelData.title
                     readonly property int groupCellWidth: Math.max(root.minCellWidth, Math.min(root.maxCellWidth, Math.floor(width / root.responsiveColumns)))
                     readonly property int groupCellHeight: Math.max(Kirigami.Units.gridUnit * 8, Math.round(groupCellWidth * root.cellAspectRatio))
+                    readonly property int groupTileWidth: Math.max(1, groupCellWidth - root.tileSpacing)
+                    readonly property int visibleColumns: Math.max(1, Math.min(root.responsiveColumns, modelData.items ? modelData.items.length : 1))
+                    readonly property int groupFlowWidth: Math.min(width, (visibleColumns * groupTileWidth) + (Math.max(0, visibleColumns - 1) * root.tileSpacing))
                     readonly property int categoryHeaderIconSize: Kirigami.Units.iconSizes.smallMedium * 2
                     readonly property int categoryHeaderFontPixelSize: Math.max(Kirigami.Theme.defaultFont.pixelSize, Kirigami.Units.gridUnit) * 1.25
+                    readonly property int categoryHeaderWidth: Math.min(width, categoryHeaderRow.implicitWidth)
 
                     visible: title.length > 0
                     width: parent ? parent.width : 0
@@ -205,7 +211,9 @@ Item {
                         spacing: Kirigami.Units.smallSpacing
 
                         RowLayout {
-                            width: parent.width
+                            id: categoryHeaderRow
+                            x: root.alignLeft ? 0 : Math.max(0, Math.round((parent.width - width) / 2))
+                            width: categoryHeaderWidth
                             spacing: Kirigami.Units.smallSpacing
 
                             Kirigami.Icon {
@@ -215,7 +223,6 @@ Item {
                             }
 
                             PlasmaComponents3.Label {
-                                Layout.fillWidth: true
                                 color: "#949494"
                                 font.weight: Font.DemiBold
                                 font.pixelSize: categoryHeaderFontPixelSize
@@ -224,7 +231,8 @@ Item {
                         }
 
                         Flow {
-                            width: parent.width
+                            x: root.alignLeft ? 0 : Math.max(0, Math.round((parent.width - width) / 2))
+                            width: groupFlowWidth
                             spacing: root.tileSpacing
 
                             Repeater {
@@ -234,7 +242,7 @@ Item {
                                     required property var modelData
                                     readonly property var itemData: modelData
 
-                                    width: Math.max(1, groupCellWidth - root.tileSpacing)
+                                    width: groupTileWidth
                                     height: Math.max(1, groupCellHeight - root.tileSpacing)
                                     radius: Kirigami.Units.cornerRadius
                                     color: resultMouseArea.containsMouse || root.selectedIndex === itemData.index ? root.surfaceHoverColor : "transparent"

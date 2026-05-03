@@ -982,6 +982,7 @@ FocusScope {
                         tileSpacing: root.appGridTileSpacing
                         cellAspectRatio: root.appGridCellAspectRatio
                         resultsPadding: root.appGridResultsPadding
+                        contentAlignment: root.appGridContentAlignment
                         categoryLabel: root.searchResultCategoryLabel
                         categoryLookupRevision: root.searchResultCategoryRevision
 

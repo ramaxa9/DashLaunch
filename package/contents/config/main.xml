@@ -26,6 +26,10 @@
       <label>Dashboard layout mode.</label>
       <default>sidebar-search</default>
     </entry>
+    <entry name="appGridContentAlignment" type="String">
+      <label>Horizontal alignment for app grid tiles and category headers.</label>
+      <default>center</default>
+    </entry>
     <entry name="monitorSelectionMode" type="String">
       <label>How the dashboard chooses which monitor to open on.</label>
       <default>widget</default>

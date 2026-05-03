@@ -27,6 +27,7 @@ PlasmoidItem {
     readonly property int tilePadding: 12
     readonly property string dashboardLayout: Plasmoid.configuration.dashboardLayout || "sidebar-search"
     readonly property bool appGridLayout: dashboardLayout === "app-grid"
+    readonly property string appGridContentAlignment: Plasmoid.configuration.appGridContentAlignment || "center"
 
     property string searchText: ""
     property rect currentScreenGeometry: Qt.rect(0, 0, Screen.width, Screen.height)

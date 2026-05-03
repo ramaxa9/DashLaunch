@@ -12,6 +12,7 @@ KCM.SimpleKCM {
 
     property string cfg_widgetIcon: ""
     property string cfg_dashboardLayout: "sidebar-search"
+    property string cfg_appGridContentAlignment: "center"
     property alias cfg_usePlasmaSearchPlugins: usePlasmaSearchPlugins.checked
     property string cfg_monitorSelectionMode: "widget"
     property string cfg_targetMonitorName: ""
@@ -44,6 +45,10 @@ KCM.SimpleKCM {
 
     function targetMonitorIndex() {
         return availableScreenNames.indexOf(cfg_targetMonitorName);
+    }
+
+    function appGridAlignmentIndex() {
+        return cfg_appGridContentAlignment === "left" ? 1 : 0;
     }
 
     KIconThemes.IconDialog {
@@ -154,6 +159,24 @@ KCM.SimpleKCM {
                 Component.onCompleted: currentIndex = page.cfg_dashboardLayout === "app-grid" ? 1 : 0
 
                 onActivated: page.cfg_dashboardLayout = currentIndex === 1 ? "app-grid" : "sidebar-search"
+            }
+
+            ComboBox {
+                id: appGridAlignmentCombo
+                Kirigami.FormData.label: i18n("App grid alignment:")
+                Layout.fillWidth: true
+                model: [i18n("Center"), i18n("Left")]
+                visible: page.cfg_dashboardLayout === "app-grid"
+
+                Component.onCompleted: currentIndex = page.appGridAlignmentIndex()
+
+                onVisibleChanged: {
+                    if (visible) {
+                        currentIndex = page.appGridAlignmentIndex()
+                    }
+                }
+
+                onActivated: page.cfg_appGridContentAlignment = currentIndex === 1 ? "left" : "center"
             }
 
             ComboBox {
