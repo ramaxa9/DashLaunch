@@ -68,45 +68,6 @@ FocusScope {
         border.color: root.borderColor
     }
 
-    QQC2.ToolButton {
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.margins: Kirigami.Units.largeSpacing
-        z: 25
-        visible: root.appGridLayout
-        focusPolicy: Qt.NoFocus
-        icon.name: root.appGridSearchActive ? "view-list-details" : "view-grid"
-        text: root.appGridSearchActive ? i18n("Show Windows") : i18n("Show apps")
-        display: QQC2.AbstractButton.TextBesideIcon
-
-        background: Rectangle {
-            radius: Kirigami.Units.cornerRadius
-            color: parent.down ? Qt.rgba(1, 1, 1, 0.16) : (parent.hovered ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.06))
-            border.color: root.borderColor
-            border.width: 1
-        }
-
-        contentItem: RowLayout {
-            spacing: Kirigami.Units.smallSpacing
-
-            Kirigami.Icon {
-                Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
-                Layout.preferredHeight: width
-                source: viewToggleButton.icon.name
-            }
-
-            PlasmaComponents3.Label {
-                color: root.textColor
-                text: viewToggleButton.text
-            }
-        }
-
-        onClicked: root.toggleDashboardMode()
-
-        Accessible.name: text
-        id: viewToggleButton
-    }
-
     Rectangle {
         z: 20
         visible: root.dragging
@@ -223,136 +184,43 @@ FocusScope {
         anchors.margins: Kirigami.Units.largeSpacing
         spacing: Kirigami.Units.largeSpacing
 
-        RowLayout {
-            visible: !root.appGridSearchActive
+        Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: Kirigami.Units.largeSpacing
+            radius: Kirigami.Units.cornerRadius
+            color: root.surfaceColor
+            border.color: root.borderColor
 
-            Rectangle {
-                visible: root.searching && !root.appGridSearchActive
-                Layout.preferredWidth: root.searching ? Math.round(parent.width * 0.2) : 0
-                Layout.maximumWidth: root.searching ? Math.round(parent.width * 0.2) : 0
-                Layout.fillHeight: true
-                radius: Kirigami.Units.cornerRadius
-                color: root.surfaceColor
-                border.color: root.borderColor
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: root.tilePadding
+                spacing: root.tilePadding
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: Kirigami.Units.smallSpacing
-                    spacing: Kirigami.Units.smallSpacing
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: (root.screenCount() > 0 || virtualDesktopInfo.desktopIds.length > 0)
+                        ? root.desktopPreviewHeight + (Kirigami.Units.gridUnit * 2.7)
+                        : 0
+                    visible: root.screenCount() > 0 || virtualDesktopInfo.desktopIds.length > 0
 
-                    QQC2.TextField {
-                        id: searchField
-                        Layout.fillWidth: true
-                        text: root.searchText
-                        color: root.textColor
-                        placeholderText: i18n("Search applications")
-                        selectByMouse: true
+                    RowLayout {
+                        anchors.fill: parent
+                        spacing: Kirigami.Units.largeSpacing
 
-                        onTextEdited: root.searchText = text
-
-                        Component.onCompleted: {
-                            if (searchField.visible) {
-                                root.searchFieldRef = searchField
-                            }
-                        }
-
-                        Component.onDestruction: {
-                            if (root.searchFieldRef === searchField) {
-                                root.searchFieldRef = null
-                            }
-                        }
-
-                        onVisibleChanged: {
-                            if (visible) {
-                                root.searchFieldRef = searchField
-                            } else if (root.searchFieldRef === searchField) {
-                                root.searchFieldRef = null
-                            }
-                        }
-
-                        background: Rectangle {
-                            radius: Kirigami.Units.cornerRadius
-                            color: Qt.rgba(1, 1, 1, 0.04)
-                            border.color: searchField.activeFocus ? root.selectionBorderColor : root.borderColor
-                            border.width: 1
-                        }
-
-                        leftPadding: Kirigami.Units.largeSpacing
-                        rightPadding: Kirigami.Units.largeSpacing
-                        topPadding: Kirigami.Units.smallSpacing * 1.5
-                        bottomPadding: Kirigami.Units.smallSpacing * 1.5
-
-                        Keys.onPressed: event => {
-                            root.handleNavigationKey(event)
-                        }
-
-                        Keys.onEscapePressed: event => {
-                            root.handleEscape()
-                            event.accepted = true
-                        }
-                    }
-
-                    SidebarSearchResultsView {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        resultsModel: root.searchResultsModel
-                        selectedIndex: root.selectedSearchIndex
-                        textColor: root.textColor
-                        mutedTextColor: root.mutedTextColor
-                        surfaceHoverColor: root.surfaceHoverColor
-                        searching: root.searching
-                        categoryLabel: root.searchResultCategoryLabel
-                        categoryLookupRevision: root.searchResultCategoryRevision
-
-                        onResultActivated: index => {
-                            root.selectedSearchIndex = index
-                            root.triggerSelectedSearchResult()
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                visible: !root.appGridSearchActive
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                radius: Kirigami.Units.cornerRadius
-                color: root.surfaceColor
-                border.color: root.borderColor
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: root.tilePadding
-                    spacing: root.tilePadding
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: (root.screenCount() > 0 || virtualDesktopInfo.desktopIds.length > 0)
-                            ? root.desktopPreviewHeight + (Kirigami.Units.gridUnit * 2.7)
-                            : 0
-                        visible: root.screenCount() > 0 || virtualDesktopInfo.desktopIds.length > 0
-
-                        RowLayout {
-                            anchors.fill: parent
-                            spacing: Kirigami.Units.largeSpacing
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 3
+                            Layout.fillHeight: true
+                            visible: root.screenCount() > 0
 
                             Item {
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 0
-                                Layout.fillHeight: true
-                                visible: root.screenCount() > 0
+                                anchors.fill: parent
+                                clip: true
 
-                                Item {
-                                    anchors.fill: parent
-                                    clip: true
+                                Repeater {
+                                    model: root.screenCount()
 
-                                    Repeater {
-                                        model: root.screenCount()
-
-                                        delegate: PreviewTile {
+                                    delegate: PreviewTile {
                                             id: screenCard
                                             required property int index
                                             readonly property string screenName: root.screenNameAt(index)
@@ -432,23 +300,23 @@ FocusScope {
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: root.selectScreen(index, true)
                                             }
-                                        }
                                     }
                                 }
                             }
+                        }
 
-                            Item {
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 0
-                                Layout.fillHeight: true
-                                visible: virtualDesktopInfo.desktopIds.length > 0
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 7
+                            Layout.fillHeight: true
+                            visible: virtualDesktopInfo.desktopIds.length > 0
 
-                                QQC2.ScrollView {
-                                    anchors.fill: parent
-                                    clip: true
-                                    QQC2.ScrollBar.vertical.policy: QQC2.ScrollBar.AlwaysOff
+                            QQC2.ScrollView {
+                                anchors.fill: parent
+                                clip: true
+                                QQC2.ScrollBar.vertical.policy: QQC2.ScrollBar.AlwaysOff
 
-                                    ListView {
+                                ListView {
                                         id: desktopPreviewList
                                         anchors.fill: parent
                                         currentIndex: root.selectedDesktopIndex
@@ -673,16 +541,111 @@ FocusScope {
                                                 }
                                             }
                                         }
-                                    }
                                 }
                             }
                         }
                     }
+                }
+
+                RowLayout {
+                    Layout.alignment: Qt.AlignHCenter
+                    spacing: Kirigami.Units.smallSpacing
+
+                    QQC2.ToolButton {
+                        id: viewToggleButton
+                        Layout.preferredHeight: searchField.implicitHeight
+                        Layout.maximumHeight: searchField.implicitHeight
+                        focusPolicy: Qt.NoFocus
+                        icon.name: root.appGridSearchActive ? "view-list-details" : "view-grid"
+                        text: root.appGridSearchActive ? i18n("Show Windows") : i18n("Show apps")
+                        display: QQC2.AbstractButton.TextBesideIcon
+                        leftPadding: 10
+                        rightPadding: 10
+                        topPadding: Kirigami.Units.smallSpacing * 1.5
+                        bottomPadding: Kirigami.Units.smallSpacing * 1.5
+
+                        background: Rectangle {
+                            radius: Kirigami.Units.cornerRadius
+                            color: parent.down ? Qt.rgba(1, 1, 1, 0.16) : (parent.hovered ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.06))
+                            border.color: parent.hovered ? root.selectionBorderColor : "transparent"
+                            border.width: parent.hovered ? 1 : 0
+                        }
+
+                        contentItem: RowLayout {
+                            spacing: Kirigami.Units.smallSpacing
+
+                            Kirigami.Icon {
+                                Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
+                                Layout.preferredHeight: width
+                                source: viewToggleButton.icon.name
+                            }
+
+                            PlasmaComponents3.Label {
+                                color: root.textColor
+                                text: viewToggleButton.text
+                            }
+                        }
+
+                        onClicked: root.toggleDashboardMode()
+
+                        Accessible.name: text
+                    }
+
+                    QQC2.TextField {
+                        id: searchField
+                        Layout.preferredWidth: root.appGridSearchFieldWidth
+                        Layout.maximumWidth: root.appGridSearchFieldWidth
+                        text: root.searchText
+                        color: root.textColor
+                        placeholderText: i18n("Search applications")
+                        selectByMouse: true
+
+                        onTextEdited: root.searchText = text
+
+                        Component.onCompleted: {
+                            root.searchFieldRef = searchField
+                        }
+
+                        Component.onDestruction: {
+                            if (root.searchFieldRef === searchField) {
+                                root.searchFieldRef = null
+                            }
+                        }
+
+                        background: Rectangle {
+                            radius: Kirigami.Units.cornerRadius
+                            color: Qt.rgba(1, 1, 1, 0.04)
+                            border.color: searchField.activeFocus ? root.selectionBorderColor : root.borderColor
+                            border.width: 1
+                        }
+
+                        leftPadding: Kirigami.Units.largeSpacing
+                        rightPadding: Kirigami.Units.largeSpacing
+                        topPadding: Kirigami.Units.smallSpacing * 1.5
+                        bottomPadding: Kirigami.Units.smallSpacing * 1.5
+
+                        Keys.onPressed: event => {
+                            root.handleNavigationKey(event)
+                        }
+
+                        Keys.onEscapePressed: event => {
+                            root.handleEscape()
+                            event.accepted = true
+                        }
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
                     QQC2.ScrollView {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: Math.round(parent.width * 0.6)
                         clip: true
+                        visible: !root.appGridSearchActive
                         QQC2.ScrollBar.horizontal.policy: QQC2.ScrollBar.AlwaysOff
 
                         GridView {
@@ -890,84 +853,13 @@ FocusScope {
                             }
                         }
                     }
-                }
-            }
-        }
-
-        Item {
-            visible: root.appGridSearchActive
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-
-            ColumnLayout {
-                anchors.fill: parent
-                spacing: Kirigami.Units.largeSpacing
-
-                QQC2.TextField {
-                    id: appGridSearchField
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.preferredWidth: root.appGridSearchFieldWidth
-                    Layout.maximumWidth: root.appGridSearchFieldWidth
-                    text: root.searchText
-                    color: root.textColor
-                    placeholderText: i18n("Search applications")
-                    selectByMouse: true
-
-                    onTextEdited: root.searchText = text
-
-                    Component.onCompleted: {
-                        if (appGridSearchField.visible) {
-                            root.searchFieldRef = appGridSearchField
-                        }
-                    }
-
-                    Component.onDestruction: {
-                        if (root.searchFieldRef === appGridSearchField) {
-                            root.searchFieldRef = null
-                        }
-                    }
-
-                    onVisibleChanged: {
-                        if (visible) {
-                            root.searchFieldRef = appGridSearchField
-                        } else if (root.searchFieldRef === appGridSearchField) {
-                            root.searchFieldRef = null
-                        }
-                    }
-
-                    background: Rectangle {
-                        radius: Kirigami.Units.cornerRadius
-                        color: Qt.rgba(1, 1, 1, 0.04)
-                        border.color: appGridSearchField.activeFocus ? root.selectionBorderColor : root.borderColor
-                        border.width: 1
-                    }
-
-                    leftPadding: Kirigami.Units.largeSpacing
-                    rightPadding: Kirigami.Units.largeSpacing
-                    topPadding: Kirigami.Units.smallSpacing * 1.5
-                    bottomPadding: Kirigami.Units.smallSpacing * 1.5
-
-                    Keys.onPressed: event => {
-                        root.handleNavigationKey(event)
-                    }
-
-                    Keys.onEscapePressed: event => {
-                        root.handleEscape()
-                        event.accepted = true
-                    }
-                }
-
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    radius: Kirigami.Units.cornerRadius
-                    color: root.surfaceColor
-                    border.color: root.borderColor
-
-                    AppGridSearchResultsView {
-                        id: appGridSearchResultsView
-                        anchors.fill: parent
+                    SearchResultsView {
+                        id: searchResultsView
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: Math.round(parent.width * 0.6)
+                        visible: root.appGridSearchActive
                         resultsModel: root.appGridResultsModel
                         selectedIndex: root.selectedSearchIndex
                         tooltipIndex: root.appGridTooltipIndex
@@ -982,15 +874,28 @@ FocusScope {
                         tileSpacing: root.appGridTileSpacing
                         cellAspectRatio: root.appGridCellAspectRatio
                         resultsPadding: root.appGridResultsPadding
-                        contentAlignment: root.appGridContentAlignment
                         categoryLabel: root.searchResultCategoryLabel
                         categoryLookupRevision: root.searchResultCategoryRevision
+                        showName: root.searchResultShowName
+                        showCategoryHeader: root.searchResultShowCategoryHeader
 
-                        Component.onCompleted: root.appGridResultsViewRef = appGridSearchResultsView
+                        Component.onCompleted: {
+                            if (visible) {
+                                root.searchResultsViewRef = searchResultsView
+                            }
+                        }
 
                         Component.onDestruction: {
-                            if (root.appGridResultsViewRef === appGridSearchResultsView) {
-                                root.appGridResultsViewRef = null
+                            if (root.searchResultsViewRef === searchResultsView) {
+                                root.searchResultsViewRef = null
+                            }
+                        }
+
+                        onVisibleChanged: {
+                            if (visible) {
+                                root.searchResultsViewRef = searchResultsView
+                            } else if (root.searchResultsViewRef === searchResultsView) {
+                                root.searchResultsViewRef = null
                             }
                         }
 

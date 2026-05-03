@@ -25,9 +25,8 @@ PlasmoidItem {
     readonly property color textColor: "#f5f2eb"
     readonly property color mutedTextColor: Qt.rgba(0.96, 0.94, 0.9, 0.68)
     readonly property int tilePadding: 12
-    readonly property string dashboardLayout: Plasmoid.configuration.dashboardLayout || "sidebar-search"
-    readonly property bool appGridLayout: dashboardLayout === "app-grid"
-    readonly property string appGridContentAlignment: Plasmoid.configuration.appGridContentAlignment || "center"
+    readonly property bool searchResultShowName: Plasmoid.configuration.searchResultShowName !== false
+    readonly property bool searchResultShowCategoryHeader: Plasmoid.configuration.searchResultShowCategoryHeader !== false
 
     property string searchText: ""
     property rect currentScreenGeometry: Qt.rect(0, 0, Screen.width, Screen.height)
@@ -51,7 +50,7 @@ PlasmoidItem {
     property string navigationSection: "windows"
     property var fullViewRef: null
     property var windowsGridRef: null
-    property var appGridResultsViewRef: null
+    property var searchResultsViewRef: null
     property var searchFieldRef: null
     property var screenCardRefs: []
     property var desktopCardRefs: []
@@ -89,11 +88,14 @@ PlasmoidItem {
     readonly property var appGridResultsModel: appGridSearchActive
         ? (searching ? searchResultsModel : appGridAllAppsModel)
         : null
-    readonly property int desktopPreviewWidth: 400
+    readonly property int desktopPreviewMinWidth: Math.max(Kirigami.Units.gridUnit * 8, Math.round(currentScreenGeometry.width * 0.10))
+    readonly property int desktopPreviewMaxWidth: Math.max(desktopPreviewMinWidth, Math.round(currentScreenGeometry.width * 0.15))
+    readonly property int desktopPreviewWidth: Math.max(desktopPreviewMinWidth, Math.min(desktopPreviewMaxWidth, Math.round(dashboardWidth * 0.12)))
     readonly property int desktopPreviewHeight: currentScreenGeometry.width > 0
         ? Math.round(desktopPreviewWidth * currentScreenGeometry.height / currentScreenGeometry.width)
         : 225
-    readonly property int screenPreviewWidth: Math.max(Kirigami.Units.gridUnit * 8, Math.round(desktopPreviewWidth * 0.34))
+    readonly property int screenPreviewMinWidth: Math.max(Kirigami.Units.gridUnit * 8, Math.round(currentScreenGeometry.width * 0.10))
+    readonly property int screenPreviewMaxWidth: Math.max(screenPreviewMinWidth, Math.round(currentScreenGeometry.width * 0.15))
     readonly property string previewDesktopId: !searching && desktopPreviewPinned && selectedDesktopIndex >= 0
         ? desktopIdAt(selectedDesktopIndex)
         : ""
@@ -109,10 +111,10 @@ PlasmoidItem {
     readonly property int dashboardHeight: Math.max(480, Math.round(currentScreenGeometry.height * 0.95))
     readonly property int dashboardX: currentScreenGeometry.x + Math.round((currentScreenGeometry.width - dashboardWidth) / 2)
     readonly property int dashboardY: currentScreenGeometry.y + Math.round((currentScreenGeometry.height - dashboardHeight) / 2)
-    readonly property int windowGridMinCellWidth: Math.max(Kirigami.Units.gridUnit * 12, Math.round(dashboardWidth * 0.15))
-    readonly property int windowGridMaxCellWidth: Math.max(windowGridMinCellWidth, Math.round(dashboardWidth * 0.20))
+    readonly property int windowGridMinCellWidth: Math.max(Kirigami.Units.gridUnit * 6, Math.round(currentScreenGeometry.width * 0.08))
+    readonly property int windowGridMaxCellWidth: Math.max(windowGridMinCellWidth, Math.round(currentScreenGeometry.width * 0.15))
     readonly property int windowGridTargetCellWidth: Math.round((windowGridMinCellWidth + windowGridMaxCellWidth) / 2)
-    readonly property bool appGridSearchActive: appGridLayout && (searching || appGridManualActive)
+    readonly property bool appGridSearchActive: searching || appGridManualActive
     readonly property int appGridSearchFieldWidth: Math.round(dashboardWidth * 0.2)
     readonly property int appGridResultsWidth: dashboardWidth
     readonly property int appGridResultsPadding: Math.round(dashboardWidth * 0.02)
@@ -123,8 +125,8 @@ PlasmoidItem {
     readonly property int appGridMaxCellWidth: appGridTileSize
     readonly property real appGridCellAspectRatio: 1.0
     readonly property int appGridColumns: Math.max(1, Math.floor(appGridResultsWidth / appGridMinCellWidth))
-    readonly property int windowTileMinWidth: Math.round(dashboardWidth * 0.15)
-    readonly property int windowTileMaxWidth: Math.max(windowTileMinWidth, Math.round(dashboardWidth * 0.20))
+    readonly property int windowTileMinWidth: Math.max(Kirigami.Units.gridUnit * 6, Math.round(currentScreenGeometry.width * 0.08))
+    readonly property int windowTileMaxWidth: Math.max(windowTileMinWidth, Math.round(currentScreenGeometry.width * 0.15))
 
     Plasmoid.title: "Dash Launch"
     Plasmoid.icon: Plasmoid.configuration.widgetIcon || "view-grid"
@@ -139,10 +141,6 @@ PlasmoidItem {
     }
 
     function showAppGrid() {
-        if (!appGridLayout) {
-            return;
-        }
-
         appGridManualActive = true;
         selectedSearchIndex = 0;
         Qt.callLater(focusSearchField);
@@ -155,10 +153,6 @@ PlasmoidItem {
     }
 
     function toggleDashboardMode() {
-        if (!appGridLayout) {
-            return;
-        }
-
         if (appGridSearchActive) {
             showWindowDesktopView();
         } else {
@@ -362,7 +356,15 @@ PlasmoidItem {
         const geometry = screenGeometryAt(index);
         const usableWidth = Math.max(1, availableWidth - (padding * 2));
         const usableHeight = Math.max(1, availableHeight - labelHeight - (padding * 2));
-        const scale = Math.min(usableWidth / bounds.width, usableHeight / bounds.height);
+        let widestScreenWidth = 1;
+        for (let screenIndex = 0; screenIndex < screenCount(); ++screenIndex) {
+            widestScreenWidth = Math.max(widestScreenWidth, screenGeometryAt(screenIndex).width);
+        }
+
+        const fitScale = Math.min(usableWidth / bounds.width, usableHeight / bounds.height);
+        const minScale = root.screenPreviewMinWidth / widestScreenWidth;
+        const maxScale = root.screenPreviewMaxWidth / widestScreenWidth;
+        const scale = fitScale < minScale ? fitScale : Math.min(fitScale, maxScale);
         const scaledLayoutWidth = Math.round(bounds.width * scale);
         const scaledLayoutHeight = Math.round(bounds.height * scale);
         const offsetX = Math.round((availableWidth - scaledLayoutWidth) / 2);
@@ -877,9 +879,6 @@ PlasmoidItem {
         const count = visibleWindowCount();
         if (count <= 0) {
             selectedWindowIndex = -1;
-            if (navigationSection === "windows") {
-                navigationSection = (virtualDesktopInfo.desktopIds || []).length > 0 ? "desktops" : "windows";
-            }
             return;
         }
 
@@ -897,7 +896,7 @@ PlasmoidItem {
 
         syncScreenSelection();
         syncDesktopSelection();
-        navigationSection = selectedDesktopIndex >= 0 ? "desktops" : "windows";
+        navigationSection = "windows";
     }
 
     function applyPendingInitialWindowFocus() {
@@ -948,8 +947,8 @@ PlasmoidItem {
                 return;
             }
 
-            if (root.appGridResultsViewRef && root.appGridResultsViewRef.ensureIndexVisible) {
-                root.appGridResultsViewRef.ensureIndexVisible(targetIndex);
+            if (root.searchResultsViewRef && root.searchResultsViewRef.ensureIndexVisible) {
+                root.searchResultsViewRef.ensureIndexVisible(targetIndex);
             }
 
             root.appGridTooltipIndex = targetIndex;
@@ -988,11 +987,20 @@ PlasmoidItem {
             return;
         }
 
+        const view = searchResultsViewRef;
+        if (view && view.nextVerticalIndex) {
+            const targetIndex = view.nextVerticalIndex(step);
+            if (targetIndex >= 0) {
+                selectedSearchIndex = targetIndex;
+                return;
+            }
+        }
+
         selectedSearchIndex = Math.max(0, Math.min(count - 1, selectedSearchIndex + step));
     }
 
     function visibleAppGridColumns() {
-        const view = appGridResultsViewRef;
+        const view = searchResultsViewRef;
         if (view && view.responsiveColumns > 0) {
             return view.responsiveColumns;
         }
@@ -1001,7 +1009,7 @@ PlasmoidItem {
     }
 
     function moveAppGridSelectionHorizontal(step) {
-        const view = appGridResultsViewRef;
+        const view = searchResultsViewRef;
         if (view && view.nextHorizontalIndex) {
             const targetIndex = view.nextHorizontalIndex(step);
             if (targetIndex >= 0) {
@@ -1014,7 +1022,7 @@ PlasmoidItem {
     }
 
     function moveAppGridSelectionVertical(step) {
-        const view = appGridResultsViewRef;
+        const view = searchResultsViewRef;
         if (view && view.nextVerticalIndex) {
             const targetIndex = view.nextVerticalIndex(step);
             if (targetIndex >= 0) {
@@ -1074,6 +1082,56 @@ PlasmoidItem {
         navigationSection = "desktops";
         desktopPreviewPinned = true;
         selectedDesktopIndex = Math.max(0, Math.min(desktopIds.length - 1, selectedDesktopIndex + step));
+    }
+
+    function orderedScreenIndexes(axis) {
+        const indexes = [];
+
+        for (let index = 0; index < screenCount(); ++index) {
+            indexes.push(index);
+        }
+
+        indexes.sort((leftIndex, rightIndex) => {
+            const left = screenGeometryAt(leftIndex);
+            const right = screenGeometryAt(rightIndex);
+
+            if (axis === "vertical") {
+                if (left.y !== right.y) {
+                    return left.y - right.y;
+                }
+
+                if (left.x !== right.x) {
+                    return left.x - right.x;
+                }
+            } else {
+                if (left.x !== right.x) {
+                    return left.x - right.x;
+                }
+
+                if (left.y !== right.y) {
+                    return left.y - right.y;
+                }
+            }
+
+            return leftIndex - rightIndex;
+        });
+
+        return indexes;
+    }
+
+    function moveScreenSelection(step, axis) {
+        const count = screenCount();
+        if (count <= 0) {
+            return;
+        }
+
+        syncScreenSelection();
+        const orderedIndexes = orderedScreenIndexes(axis === "vertical" ? "vertical" : "horizontal");
+        const currentPosition = Math.max(0, orderedIndexes.indexOf(selectedScreenIndex));
+        const targetPosition = Math.max(0, Math.min(orderedIndexes.length - 1, currentPosition + step));
+        screenPreviewPinned = true;
+        selectedScreenIndex = orderedIndexes[targetPosition];
+        refreshWindowModels();
     }
 
     function focusDesktopSelection() {
@@ -1251,7 +1309,39 @@ PlasmoidItem {
     }
 
     function handleNavigationKey(event) {
-        if ((event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) !== 0) {
+        if ((event.modifiers & Qt.MetaModifier) !== 0) {
+            return false;
+        }
+
+        if ((event.modifiers & Qt.AltModifier) !== 0) {
+            if (event.key === Qt.Key_Left || event.key === Qt.Key_Up) {
+                moveDesktopSelection(-1);
+                event.accepted = true;
+                return true;
+            }
+
+            if (event.key === Qt.Key_Right || event.key === Qt.Key_Down) {
+                moveDesktopSelection(1);
+                event.accepted = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        if ((event.modifiers & Qt.ControlModifier) !== 0) {
+            if (event.key === Qt.Key_Left || event.key === Qt.Key_Up) {
+                moveScreenSelection(-1, event.key === Qt.Key_Up ? "vertical" : "horizontal");
+                event.accepted = true;
+                return true;
+            }
+
+            if (event.key === Qt.Key_Right || event.key === Qt.Key_Down) {
+                moveScreenSelection(1, event.key === Qt.Key_Down ? "vertical" : "horizontal");
+                event.accepted = true;
+                return true;
+            }
+
             return false;
         }
 
@@ -1260,15 +1350,9 @@ PlasmoidItem {
                 moveAppGridSelectionVertical(-1);
             } else if (searching) {
                 moveSearchSelection(-1);
-            } else if (navigationSection === "windows") {
-                syncWindowSelection();
-                if (selectedWindowIndex < visibleWindowGridColumns()) {
-                    focusDesktopSelection();
-                } else {
-                    moveWindowSelectionVertical(-1);
-                }
             } else {
-                moveDesktopSelection(-1);
+                navigationSection = "windows";
+                moveWindowSelectionVertical(-1);
             }
             event.accepted = true;
             return true;
@@ -1279,9 +1363,8 @@ PlasmoidItem {
                 moveAppGridSelectionVertical(1);
             } else if (searching) {
                 moveSearchSelection(1);
-            } else if (navigationSection === "desktops") {
-                focusWindowSelection();
             } else {
+                navigationSection = "windows";
                 moveWindowSelectionVertical(1);
             }
             event.accepted = true;
@@ -1301,21 +1384,15 @@ PlasmoidItem {
         }
 
         if (!searching && event.key === Qt.Key_Left) {
-            if (navigationSection === "desktops") {
-                moveDesktopSelection(-1);
-            } else {
-                moveWindowSelectionHorizontal(-1);
-            }
+            navigationSection = "windows";
+            moveWindowSelectionHorizontal(-1);
             event.accepted = true;
             return true;
         }
 
         if (!searching && event.key === Qt.Key_Right) {
-            if (navigationSection === "desktops") {
-                moveDesktopSelection(1);
-            } else {
-                moveWindowSelectionHorizontal(1);
-            }
+            navigationSection = "windows";
+            moveWindowSelectionHorizontal(1);
             event.accepted = true;
             return true;
         }

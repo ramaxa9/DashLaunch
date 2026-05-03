@@ -11,8 +11,8 @@ KCM.SimpleKCM {
     id: page
 
     property string cfg_widgetIcon: ""
-    property string cfg_dashboardLayout: "sidebar-search"
-    property string cfg_appGridContentAlignment: "center"
+    property alias cfg_searchResultShowName: showSearchResultName.checked
+    property alias cfg_searchResultShowCategoryHeader: showSearchResultCategoryHeader.checked
     property alias cfg_usePlasmaSearchPlugins: usePlasmaSearchPlugins.checked
     property string cfg_monitorSelectionMode: "widget"
     property string cfg_targetMonitorName: ""
@@ -45,10 +45,6 @@ KCM.SimpleKCM {
 
     function targetMonitorIndex() {
         return availableScreenNames.indexOf(cfg_targetMonitorName);
-    }
-
-    function appGridAlignmentIndex() {
-        return cfg_appGridContentAlignment === "left" ? 1 : 0;
     }
 
     KIconThemes.IconDialog {
@@ -139,49 +135,10 @@ KCM.SimpleKCM {
                     onClicked: page.cfg_accentColor = "#7dcfff"
                 }
             }
-        }
-
-        Kirigami.Heading {
-            Layout.fillWidth: true
-            level: 2
-            text: i18n("Dashboard layout")
-        }
-
-        Kirigami.FormLayout {
-            Layout.fillWidth: true
-
-            ComboBox {
-                id: layoutTypeCombo
-                Kirigami.FormData.label: i18n("Search layout:")
-                Layout.fillWidth: true
-                model: [i18n("Sidebar search"), i18n("App grid")]
-
-                Component.onCompleted: currentIndex = page.cfg_dashboardLayout === "app-grid" ? 1 : 0
-
-                onActivated: page.cfg_dashboardLayout = currentIndex === 1 ? "app-grid" : "sidebar-search"
-            }
-
-            ComboBox {
-                id: appGridAlignmentCombo
-                Kirigami.FormData.label: i18n("App grid alignment:")
-                Layout.fillWidth: true
-                model: [i18n("Center"), i18n("Left")]
-                visible: page.cfg_dashboardLayout === "app-grid"
-
-                Component.onCompleted: currentIndex = page.appGridAlignmentIndex()
-
-                onVisibleChanged: {
-                    if (visible) {
-                        currentIndex = page.appGridAlignmentIndex()
-                    }
-                }
-
-                onActivated: page.cfg_appGridContentAlignment = currentIndex === 1 ? "left" : "center"
-            }
 
             ComboBox {
                 id: monitorModeCombo
-                Kirigami.FormData.label: i18n("Open on monitor:")
+                Kirigami.FormData.label: i18n("Monitor:")
                 Layout.fillWidth: true
                 model: [i18n("Widget monitor"), i18n("Follow mouse"), i18n("Specific monitor")]
 
@@ -220,6 +177,26 @@ KCM.SimpleKCM {
                         page.cfg_targetMonitorName = page.availableScreenNames[currentIndex]
                     }
                 }
+            }
+        }
+
+        Kirigami.Heading {
+            Layout.fillWidth: true
+            level: 2
+            text: i18n("Search results")
+        }
+
+        Kirigami.FormLayout {
+            Layout.fillWidth: true
+
+            CheckBox {
+                id: showSearchResultName
+                text: i18n("Show app name")
+            }
+
+            CheckBox {
+                id: showSearchResultCategoryHeader
+                text: i18n("Show category name and icon")
             }
 
             CheckBox {

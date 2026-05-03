@@ -1,3 +1,8 @@
  
 ✅ add/delete virtual desktop buttons after last desktop tile
 ✅ help page
+
+✅ on image you can see layouts design(3 layouts to be exact) for the new version of the dashboard, use this image only as reference(do not use colors from the image), smallest text is only explanation of an UI element. 
+
+✅ i want you to replace AppGridSearchResultsView and SidebarSearchResultsView with only one SearchResultsView as the base class, that sidebar and app grid will use to display search results. Make ability to have app name/description/type as text, to sort, to group search results, create respective options in settings(create new settings group for that).
+

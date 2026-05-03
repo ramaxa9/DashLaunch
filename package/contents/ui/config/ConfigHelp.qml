@@ -95,7 +95,7 @@ KCM.SimpleKCM {
             middle: ""
         },
         {
-            label: i18n("App list/grid"),
+            label: i18n("App grid"),
             single: i18n("Activate"),
             doubleAction: "",
             middle: ""
@@ -122,7 +122,7 @@ KCM.SimpleKCM {
             enter: ""
         },
         {
-            label: i18n("App list/grid"),
+            label: i18n("App grid"),
             arrows: i18n("Navigate"),
             deleteAction: "",
             enter: i18n("Activate")

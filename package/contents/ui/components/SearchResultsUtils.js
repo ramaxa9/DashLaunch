@@ -1,20 +1,3 @@
-function hasSections(resultsModel) {
-    return !!(resultsModel && resultsModel.sections && resultsModel.sections.count > 0)
-}
-
-function sectionTitle(resultsModel, sectionIndex) {
-    if (!resultsModel || !resultsModel.sections) {
-        return ""
-    }
-
-    const modelIndex = resultsModel.sections.index(sectionIndex, 0)
-    if (!modelIndex.valid) {
-        return ""
-    }
-
-    return String(resultsModel.sections.data(modelIndex, Qt.DisplayRole) || "")
-}
-
 function normalizedText(value) {
     return String(value || "").trim()
 }
@@ -55,14 +38,14 @@ function rowObject(resultsModel, row) {
         return null
     }
 
-    if (resultsModel.get) {
-        const item = resultsModel.get(row)
-        if (item) {
-            return Object.assign({ index: row }, item)
-        }
-    }
-
     if (!resultsModel.index || !resultsModel.data) {
+        if (resultsModel.get) {
+            const item = resultsModel.get(row)
+            if (item) {
+                return Object.assign({ index: row }, item)
+            }
+        }
+
         return null
     }
 
@@ -73,7 +56,7 @@ function rowObject(resultsModel, row) {
 
     const roles = roleIdMap(resultsModel)
 
-    return {
+    const indexedItem = {
         index: row,
         display: String(dataForRole(resultsModel, modelIndex, roles, "display", Qt.DisplayRole) || ""),
         decoration: dataForRole(resultsModel, modelIndex, roles, "decoration", Qt.DecorationRole),
@@ -88,15 +71,28 @@ function rowObject(resultsModel, row) {
         url: dataForRole(resultsModel, modelIndex, roles, "url"),
         urls: dataForRole(resultsModel, modelIndex, roles, "urls")
     }
+
+    if (!resultsModel.get) {
+        return indexedItem
+    }
+
+    const item = resultsModel.get(row)
+    if (!item) {
+        return indexedItem
+    }
+
+    return Object.assign({}, item, indexedItem)
 }
 
-function groupedResults(resultsModel, categoryResolver, uncategorizedTitle) {
+function processedResults(resultsModel, categoryResolver, uncategorizedTitle) {
     if (!resultsModel || resultsModel.count <= 0) {
         return []
     }
 
-    const groupsByTitle = {}
-    const groups = []
+    const group = {
+        title: "",
+        items: []
+    }
 
     for (let row = 0; row < resultsModel.count; ++row) {
         const item = rowObject(resultsModel, row)
@@ -104,20 +100,18 @@ function groupedResults(resultsModel, categoryResolver, uncategorizedTitle) {
             continue
         }
 
-        const title = categoryText(item, categoryResolver) || uncategorizedTitle
-        if (!Object.prototype.hasOwnProperty.call(groupsByTitle, title)) {
-            const group = {
-                title,
-                items: []
-            }
-            groupsByTitle[title] = group
-            groups.push(group)
-        }
-
-        groupsByTitle[title].items.push(item)
+        group.items.push(item)
     }
 
-    return groups
+    if (group.items.length <= 0) {
+        return []
+    }
+
+    return [group]
+}
+
+function descriptionText(matchModel) {
+    return normalizedText(matchModel && matchModel.description)
 }
 
 function categoryText(matchModel, categoryResolver) {
@@ -163,6 +157,8 @@ function categoryIconName(category) {
         return "help-browser"
     case "Other":
         return "applications-other"
+    case "Uncategorized":
+        return "dialog-question"
     default:
         return "view-grid"
     }

@@ -22,14 +22,6 @@
       <label>Accent color used for the selected or hovered tile.</label>
       <default>#7dcfff</default>
     </entry>
-    <entry name="dashboardLayout" type="String">
-      <label>Dashboard layout mode.</label>
-      <default>sidebar-search</default>
-    </entry>
-    <entry name="appGridContentAlignment" type="String">
-      <label>Horizontal alignment for app grid tiles and category headers.</label>
-      <default>center</default>
-    </entry>
     <entry name="monitorSelectionMode" type="String">
       <label>How the dashboard chooses which monitor to open on.</label>
       <default>widget</default>
@@ -45,6 +37,17 @@
     <entry name="enableFullscreen" type="Bool">
       <label>Enable fullscreen mode.</label>
       <default>false</default>
+    </entry>
+  </group>
+
+  <group name="SearchResults">
+    <entry name="searchResultShowName" type="Bool">
+      <label>Show application names in search results.</label>
+      <default>true</default>
+    </entry>
+    <entry name="searchResultShowCategoryHeader" type="Bool">
+      <label>Show category name and icon in search results.</label>
+      <default>true</default>
     </entry>
   </group>
 </kcfg>
